@@ -25,7 +25,7 @@ const SignUp = () => {
 
     try {
       // Paso 1: crear cuenta con Supabase Auth
-      const resAuth = await fetch('/api/auth/signup', {
+      const resAuth = await fetch('/pages/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: Password }),
@@ -39,7 +39,7 @@ const SignUp = () => {
       const userId = auth.user.id;
 
       // Paso 2: crear perfil y generar QR de Didit
-      const resRegistro = await fetch('/api/registro', {
+      const resRegistro = await fetch('/pages/api/registro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

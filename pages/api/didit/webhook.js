@@ -1,4 +1,4 @@
-import { supabase } from '../../../src/app/SupabaseClient';
+import { supabase } from '@/app/SupabaseClient';
 import crypto from 'crypto';
 import getRawBody from 'raw-body';
 
