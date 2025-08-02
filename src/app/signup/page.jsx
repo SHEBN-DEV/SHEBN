@@ -22,7 +22,7 @@ const SignUp = () => {
 
   const handleSignUpSubmit = async (data) => {
     const { FullName, UserName, email, Password } = data;
-
+ // Paso 1: crear cuenta de autenticación en Supabase
     try {
       // Paso 1: crear cuenta de autenticación en Supabase
       const resAuth = await fetch('/api/auth/signup', {
