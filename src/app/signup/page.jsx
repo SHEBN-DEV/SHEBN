@@ -22,31 +22,23 @@ const SignUp = () => {
 
   const handleSignUpSubmit = async (data) => {
     const { FullName, UserName, email, Password } = data;
- // Paso 1: crear cuenta de autenticación en Supabase
+
     try {
-      // Paso 1: crear cuenta de autenticación en Supabase
+      // Paso 1: crear cuenta con Supabase Auth
       const resAuth = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: Password }),
       });
-      
-      const authText = await resAuth.text();
-      let auth;
-      try {
-        auth = JSON.parse(authText);
-      } catch (error) {
-        console.error(' Error parseando JSON de /api/auth/signup:', authText);
-        throw new Error('Respuesta inválida del servidor de autenticación');
+
+      const auth = await resAuth.json();
+      if (!auth.user || auth.error) {
+        throw new Error(auth.error || 'No se pudo crear el usuario');
       }
-      
-      if (!resAuth.ok || !auth?.user) {
-        throw new Error(auth?.error || 'No se pudo crear el usuario');
-      }
-      
+
       const userId = auth.user.id;
 
-      // Paso 2: llamar a /api/registro para crear perfil y generar QR
+      // Paso 2: crear perfil y generar QR de Didit
       const resRegistro = await fetch('/api/registro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,19 +46,12 @@ const SignUp = () => {
           id: userId,
           full_name: FullName,
           user_name: UserName,
-          email: email,
+          email,
         }),
       });
-      
-      const registroText = await resRegistro.text();
-      let result;
-      try {
-        result = JSON.parse(registroText);
-      } catch (error) {
-        console.error('❌ Error parseando JSON de /api/registro:', registroText);
-        throw new Error('Respuesta inválida del servidor de registro');
-      }
-      
+
+      const result = await resRegistro.json();
+
       if (result.qr) {
         setQrUrl(result.qr);
         setToastMessage('Cuenta creada, escanea el QR para verificar tu identidad.');
@@ -75,11 +60,10 @@ const SignUp = () => {
       } else {
         throw new Error(result.error || 'Error generando el QR');
       }
-      
     } catch (err) {
       console.error(err);
       setToastMessage(err.message || 'Error inesperado');
-      setToastType("error");
+      setToastType('error');
       setShowToast(true);
     }
   };
