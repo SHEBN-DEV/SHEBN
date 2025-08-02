@@ -30,12 +30,20 @@ const SignUp = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: Password }),
       });
-
-      const auth = await resAuth.json();
-      if (!auth.user || auth.error) {
-        throw new Error(auth.error || 'No se pudo crear el usuario');
+      
+      const authText = await resAuth.text();
+      let auth;
+      try {
+        auth = JSON.parse(authText);
+      } catch (error) {
+        console.error(' Error parseando JSON de /api/auth/signup:', authText);
+        throw new Error('Respuesta inválida del servidor de autenticación');
       }
-
+      
+      if (!resAuth.ok || !auth?.user) {
+        throw new Error(auth?.error || 'No se pudo crear el usuario');
+      }
+      
       const userId = auth.user.id;
 
       // Paso 2: llamar a /api/registro para crear perfil y generar QR
@@ -49,17 +57,25 @@ const SignUp = () => {
           email: email,
         }),
       });
-
-      const result = await resRegistro.json();
-
+      
+      const registroText = await resRegistro.text();
+      let result;
+      try {
+        result = JSON.parse(registroText);
+      } catch (error) {
+        console.error('❌ Error parseando JSON de /api/registro:', registroText);
+        throw new Error('Respuesta inválida del servidor de registro');
+      }
+      
       if (result.qr) {
         setQrUrl(result.qr);
-        setToastMessage("Cuenta creada, escanea el QR para verificar tu identidad.");
-        setToastType("success");
+        setToastMessage('Cuenta creada, escanea el QR para verificar tu identidad.');
+        setToastType('success');
         setShowToast(true);
       } else {
         throw new Error(result.error || 'Error generando el QR');
       }
+      
     } catch (err) {
       console.error(err);
       setToastMessage(err.message || 'Error inesperado');
