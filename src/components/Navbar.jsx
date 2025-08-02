@@ -21,7 +21,7 @@ const Navbar = () => {
 
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("user_name, verification_status")
+          .select("user_name, verification_status, gender")
           .eq("id", user.id)
           .single();
 
@@ -43,7 +43,7 @@ const Navbar = () => {
           
           const { data: profileData } = await supabase
             .from("profiles")
-            .select("user_name, verification_status")
+            .select("user_name, verification_status, gender")
             .eq("id", session.user.id)
             .single();
 
@@ -71,7 +71,7 @@ const Navbar = () => {
   };
 
   const navLinks = [
-    { label: "Home", href: "/KYC" },
+    { label: "Home", href: "/" },
     { label: "Profiles", href: "/profileFriends" },
     { label: "Projects", href: "/Projects" },
     { label: "Apply", href: "#" },
@@ -119,7 +119,7 @@ const Navbar = () => {
                 defaultValue=""
               >
                 <option value="" disabled></option>
-                {profile.verification_status !== 'completed' && (
+                {profile.verification_status !== 'completed' && profile.gender === 'female' && (
                   <option value="verify">VERIFY IDENTITY</option>
                 )}
                 <option value="logout">LOG OUT</option>

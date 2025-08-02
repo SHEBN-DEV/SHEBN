@@ -6,11 +6,14 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check-env": "node scripts/check-env.js",
+    "setup": "cp env.example .env.local && echo 'Archivo .env.local creado. Por favor, configura las variables de entorno.'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.51.0",
     "clsx": "^2.1.1",
+    "dotenv": "^16.4.5",
     "next": "15.3.2",
     "next-auth": "^4.24.11",
     "raw-body": "^3.0.0",
