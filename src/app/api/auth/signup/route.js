@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase, validateSupabaseConnection } from '../../../SupabaseClient';
-import { didit } from '../../lib/didit/client';
+import { didit } from '../../../lib/didit/client';
 import { validateEnvVars } from '../../../../lib/env';
 
 export async function POST(request) {
