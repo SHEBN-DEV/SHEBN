@@ -8,7 +8,7 @@
  * - Redirección simple
  */
 
-import { diditConfig } from './env';
+import { diditConfig } from '../env';
 
 export async function generateDiditAuthUrl() {
   // URL directa del plan gratuito de Didit
