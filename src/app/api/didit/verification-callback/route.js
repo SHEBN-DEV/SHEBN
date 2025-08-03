@@ -156,27 +156,47 @@ export async function POST(request) {
                 
                 // Guardar datos de verificación para uso posterior
                 try {
-                  const { error: tempError } = await supabase
+                  console.log('💾 Intentando guardar en user_verifications...');
+                  console.log('📝 Datos a insertar:', {
+                    verification_provider: 'didit',
+                    status: status,
+                    provider_verification_id: session_id,
+                    verification_data: {
+                      ...webhookData,
+                      email: webhookData.user_data,
+                      session_id: session_id,
+                      webhook_received_at: new Date().toISOString()
+                    }
+                  });
+                  
+                  const { data: insertData, error: tempError } = await supabase
                     .from('user_verifications')
                     .insert({
                       verification_provider: 'didit',
                       status: status,
+                      provider_verification_id: session_id,
                       verification_data: {
                         ...webhookData,
                         email: webhookData.user_data,
                         session_id: session_id,
                         webhook_received_at: new Date().toISOString()
-                      },
-                      provider_verification_id: session_id
-                    });
+                      }
+                    })
+                    .select();
                   
                   if (tempError) {
-                    console.warn('⚠️ Error guardando verificación temporal:', tempError);
+                    console.error('❌ Error guardando verificación temporal:', tempError);
+                    console.error('❌ Detalles del error:', {
+                      code: tempError.code,
+                      message: tempError.message,
+                      details: tempError.details,
+                      hint: tempError.hint
+                    });
                   } else {
-                    console.log('✅ Verificación temporal guardada en user_verifications');
+                    console.log('✅ Verificación temporal guardada en user_verifications:', insertData);
                   }
                 } catch (tempError) {
-                  console.warn('⚠️ Error guardando verificación temporal:', tempError);
+                  console.error('❌ Error guardando verificación temporal:', tempError);
                 }
               }
            }
