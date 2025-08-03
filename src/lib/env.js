@@ -66,11 +66,4 @@ export function getEnvVars() {
     ...criticalEnvVars,
     ...optionalEnvVars,
   };
-}
-
-// Validación de seguridad en runtime
-if (typeof window === 'undefined' && isProduction()) {
-  if (!validateEnvVars()) {
-    console.error('❌ Configuración de seguridad incompleta');
-  }
 } 
