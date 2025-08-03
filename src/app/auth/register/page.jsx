@@ -3,10 +3,10 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { supabase } from '../../../SupabaseClient';
-import InputField from '../../../components/inputField';
-import PasswordField from '../../../components/PasswordField';
-import GenderSelect from '../../../components/GenderSelect';
+import { supabase } from '../../SupabaseClient';
+import InputField from '../../components/inputField';
+import PasswordField from '../../components/PasswordField';
+import GenderSelect from '../../components/GenderSelect';
 
 export default function RegisterPage() {
   const router = useRouter();
