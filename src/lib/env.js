@@ -1,69 +1,56 @@
 /**
- * Configuración segura de variables de entorno para Web3
+ * Configuración de variables de entorno - Plan Gratuito
+ * 
+ * Esta configuración está optimizada para el plan gratuito de:
+ * - Supabase (hasta 50,000 MAU)
+ * - Didit (verificación básica)
+ * - Vercel (deployment gratuito)
  */
 
-// Variables críticas para seguridad
-const criticalEnvVars = {
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-};
-
-// Variables opcionales con valores por defecto seguros
-const optionalEnvVars = {
-  NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'https://shebn.vercel.app',
-  NODE_ENV: process.env.NODE_ENV || 'production',
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-};
-
-// Configuración de Supabase (con validación de seguridad)
+// Configuración de Supabase (Plan Gratuito)
 export const supabaseConfig = {
-  url: criticalEnvVars.NEXT_PUBLIC_SUPABASE_URL || '',
-  anonKey: criticalEnvVars.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-  serviceRoleKey: optionalEnvVars.SUPABASE_SERVICE_ROLE_KEY || '',
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 };
 
-// Configuración de Didit (plan gratuito pero seguro)
+// Configuración de Didit (Plan Gratuito)
 export const diditConfig = {
-  apiKey: process.env.API_KEY || 'free_plan',
-  apiBaseUrl: process.env.NEXT_VERIFICATION_BASE_URL || 'https://verification.didit.me',
-  workflowId: process.env.VERIFICATION_WORKFLOW_ID || 'free_plan',
-  webhookSecret: process.env.VERIFICATION_CALLBACK_URL || 'free_plan_secret',
+  // Plan gratuito no requiere API key
+  baseUrl: 'https://verification.didit.me/v2/sesión/',
+  plan: 'free',
+  // URL de callback se genera dinámicamente
+  callbackUrl: process.env.NEXT_PUBLIC_DIDIT_CALLBACK_URL || ''
 };
 
-// Funciones de utilidad
+// Función para obtener la URL base de la aplicación
+export function getBaseUrl() {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  
+  // Para SSR, usar variable de entorno o valor por defecto
+  return process.env.NEXT_PUBLIC_BASE_URL || 'https://shebn.vercel.app';
+}
+
+// Función para verificar si estamos en producción
 export function isProduction() {
   return process.env.NODE_ENV === 'production';
 }
 
+// Función para verificar si estamos en desarrollo
 export function isDevelopment() {
   return process.env.NODE_ENV === 'development';
 }
 
-export function getBaseUrl() {
-  return optionalEnvVars.NEXT_PUBLIC_BASE_URL;
-}
-
-// Validación de seguridad (solo en runtime, no en build)
-export function validateEnvVars() {
-  const missingVars = [];
+// Variables opcionales para funcionalidades adicionales
+export const optionalEnvVars = {
+  // Para analytics (opcional)
+  analyticsId: process.env.NEXT_PUBLIC_ANALYTICS_ID || '',
   
-  for (const [key, value] of Object.entries(criticalEnvVars)) {
-    if (!value) {
-      missingVars.push(key);
-    }
-  }
+  // Para notificaciones (opcional)
+  notificationKey: process.env.NEXT_PUBLIC_NOTIFICATION_KEY || '',
   
-  if (missingVars.length > 0) {
-    console.error(`❌ Variables críticas faltantes: ${missingVars.join(', ')}`);
-    return false;
-  }
-  
-  return true;
-}
-
-export function getEnvVars() {
-  return {
-    ...criticalEnvVars,
-    ...optionalEnvVars,
-  };
-} 
+  // Para integraciones adicionales (opcional)
+  integrationToken: process.env.NEXT_PUBLIC_INTEGRATION_TOKEN || ''
+}; 
