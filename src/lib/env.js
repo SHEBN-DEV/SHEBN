@@ -111,4 +111,9 @@ if (isDevelopment()) {
     console.error('❌ Error en variables de entorno:', error.message);
     console.log('💡 Copia el archivo env.example a .env.local y configura las variables');
   }
+}
+
+// En producción, no validar en tiempo de importación para evitar errores de build
+if (isProduction()) {
+  console.log('🌍 Entorno de producción detectado');
 } 

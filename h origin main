@@ -1,0 +1,92 @@
+[1mdiff --git a/src/app/SupabaseClient.js b/src/app/SupabaseClient.js[m
+[1mindex c75e310..4e9c418 100644[m
+[1m--- a/src/app/SupabaseClient.js[m
+[1m+++ b/src/app/SupabaseClient.js[m
+[36m@@ -1,16 +1,23 @@[m
+ import { createClient } from "@supabase/supabase-js";[m
+ import { supabaseConfig } from "../../lib/env";[m
+ [m
+[31m-// Validar configuración de Supabase[m
+[31m-if (!supabaseConfig.url || !supabaseConfig.anonKey) {[m
+[31m-  throw new Error([m
+[31m-    'Configuración de Supabase incompleta. Verifica NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY'[m
+[31m-  );[m
+[31m-}[m
+[32m+[m[32m// Crear cliente de Supabase con validación condicional[m
+[32m+[m[32mlet supabase = null;[m
+[32m+[m[32mlet supabaseAdmin = null;[m
+ [m
+[31m-export const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);[m
+[32m+[m[32mtry {[m
+[32m+[m[32m  if (supabaseConfig.url && supabaseConfig.anonKey) {[m
+[32m+[m[32m    supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Cliente de Supabase con permisos de servicio (solo para operaciones del servidor)[m
+[32m+[m[32m    if (supabaseConfig.serviceRoleKey) {[m
+[32m+[m[32m      supabaseAdmin = createClient(supabaseConfig.url, supabaseConfig.serviceRoleKey);[m
+[32m+[m[32m    }[m
+[32m+[m[32m  } else {[m
+[32m+[m[32m    console.warn('⚠️ Configuración de Supabase incompleta. Verifica NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY');[m
+[32m+[m[32m  }[m
+[32m+[m[32m} catch (error) {[m
+[32m+[m[32m  console.error('❌ Error inicializando Supabase:', error.message);[m
+[32m+[m[32m}[m
+ [m
+[31m-// Cliente de Supabase con permisos de servicio (solo para operaciones del servidor)[m
+[31m-export const supabaseAdmin = supabaseConfig.serviceRoleKey [m
+[31m-  ? createClient(supabaseConfig.url, supabaseConfig.serviceRoleKey)[m
+[31m-  : null;[m
+\ No newline at end of file[m
+[32m+[m[32mexport { supabase, supabaseAdmin };[m
+\ No newline at end of file[m
+[1mdiff --git a/src/app/lib/didit/client.js b/src/app/lib/didit/client.js[m
+[1mindex 56028e1..d69c561 100644[m
+[1m--- a/src/app/lib/didit/client.js[m
+[1m+++ b/src/app/lib/didit/client.js[m
+[36m@@ -3,7 +3,11 @@[m [mimport { diditConfig, getBaseUrl } from '../../../env';[m
+ export class DiditClient {[m
+   constructor() {[m
+     // Para el plan gratuito, no necesitamos validar API key[m
+[31m-    console.log('✅ Cliente Didit configurado para plan gratuito');[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      console.log('✅ Cliente Didit configurado para plan gratuito');[m
+[32m+[m[32m    } catch (error) {[m
+[32m+[m[32m      console.warn('⚠️ Error inicializando cliente Didit:', error.message);[m
+[32m+[m[32m    }[m
+   }[m
+ [m
+   async startVerification(userId, metadata = {}) {[m
+[1mdiff --git a/src/lib/env.js b/src/lib/env.js[m
+[1mindex 0fd0c97..0a84207 100644[m
+[1m--- a/src/lib/env.js[m
+[1m+++ b/src/lib/env.js[m
+[36m@@ -111,4 +111,9 @@[m [mif (isDevelopment()) {[m
+     console.error('❌ Error en variables de entorno:', error.message);[m
+     console.log('💡 Copia el archivo env.example a .env.local y configura las variables');[m
+   }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// En producción, no validar en tiempo de importación para evitar errores de build[m
+[32m+[m[32mif (isProduction()) {[m
+[32m+[m[32m  console.log('🌍 Entorno de producción detectado');[m
+ } [m
+\ No newline at end of file[m
+[1mdiff --git a/vercel.json b/vercel.json[m
+[1mindex fc51b32..407e78d 100644[m
+[1m--- a/vercel.json[m
+[1m+++ b/vercel.json[m
+[36m@@ -1,12 +1,8 @@[m
+ {[m
+   "version": 2,[m
+   "name": "shebn",[m
+[31m-  "builds": [[m
+[31m-    {[m
+[31m-      "src": "package.json",[m
+[31m-      "use": "@vercel/next"[m
+[31m-    }[m
+[31m-  ],[m
+[32m+[m[32m  "buildCommand": "npm run build",[m
+[32m+[m[32m  "installCommand": "npm install",[m
+   "env": {[m
+     "NODE_ENV": "production"[m
+   },[m

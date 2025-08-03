@@ -3,7 +3,11 @@ import { diditConfig, getBaseUrl } from '../../../env';
 export class DiditClient {
   constructor() {
     // Para el plan gratuito, no necesitamos validar API key
-    console.log('✅ Cliente Didit configurado para plan gratuito');
+    try {
+      console.log('✅ Cliente Didit configurado para plan gratuito');
+    } catch (error) {
+      console.warn('⚠️ Error inicializando cliente Didit:', error.message);
+    }
   }
 
   async startVerification(userId, metadata = {}) {
