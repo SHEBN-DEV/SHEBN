@@ -57,8 +57,21 @@ export async function POST(request) {
       const data = await response.json();
       console.log('✅ Sesión creada con Didit API:', data);
       
-      // Construir la URL de verificación basada en el sessionId
-      const verificationUrl = `https://verification.didit.me/verify?session_id=${sessionId}&api_key=${apiKey}&workflow_id=${workflowId}&callback_url=${encodeURIComponent('https://shebn.vercel.app/auth/register/callback')}&user_data=${encodeURIComponent(email)}`;
+      // Usar la URL que Didit nos proporciona en la respuesta
+      let verificationUrl;
+      
+      if (data.verification_url) {
+        // Si Didit nos proporciona una URL, usarla
+        verificationUrl = data.verification_url;
+      } else if (data.session_token) {
+        // Si tenemos un session_token, construir la URL correcta
+        verificationUrl = `https://verify.didit.me/session/${data.session_token}`;
+      } else {
+        // Fallback: construir URL con el formato que funciona
+        verificationUrl = `https://verify.didit.me/session/${sessionId}`;
+      }
+      
+      console.log('🔗 URL de verificación:', verificationUrl);
       
       return NextResponse.json({
         success: true,
