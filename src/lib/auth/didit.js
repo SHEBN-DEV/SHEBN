@@ -20,18 +20,29 @@ export async function generateDiditAuthUrl(userEmail = null) {
     // Crear sesión de verificación usando la API de Didit
     const sessionId = `shebn_${Date.now()}`;
     
-    // Construir URL de verificación con parámetros según el demo oficial
-    const params = new URLSearchParams({
-      session_id: sessionId,
-      callback_url: callbackUrl,
-      api_key: apiKey,
-      workflow_id: workflowId,
-      user_data: userEmail || `shebn_user_${Date.now()}`
-    });
+    // Intentar crear sesión primero usando la API
+    const sessionResult = await createDiditSession(userEmail);
+    
+    if (sessionResult.success && sessionResult.verification_url) {
+      console.log('URL de verificación Didit generada via API:', sessionResult.verification_url);
+      return sessionResult.verification_url;
+    }
+    
+    // Fallback: Construir URL manualmente con diferentes formatos
+    const urlFormats = [
+      // Formato 1: Sin /session
+      `${baseUrl}?session_id=${sessionId}&callback_url=${encodeURIComponent(callbackUrl)}&api_key=${apiKey}&workflow_id=${workflowId}&user_data=${encodeURIComponent(userEmail || `shebn_user_${Date.now()}`)}`,
+      
+      // Formato 2: Con /verify
+      `${baseUrl}/verify?session_id=${sessionId}&callback_url=${encodeURIComponent(callbackUrl)}&api_key=${apiKey}&workflow_id=${workflowId}&user_data=${encodeURIComponent(userEmail || `shebn_user_${Date.now()}`)}`,
+      
+      // Formato 3: Con /v2/session
+      `${baseUrl}/v2/session?session_id=${sessionId}&callback_url=${encodeURIComponent(callbackUrl)}&api_key=${apiKey}&workflow_id=${workflowId}&user_data=${encodeURIComponent(userEmail || `shebn_user_${Date.now()}`)}`
+    ];
 
-    // URL base según las variables de entorno del demo oficial
-    const verificationUrl = `${baseUrl}/session?${params.toString()}`;
-    console.log('URL de verificación Didit generada:', verificationUrl);
+    // Probar el primer formato
+    const verificationUrl = urlFormats[0];
+    console.log('URL de verificación Didit generada (formato 1):', verificationUrl);
     return verificationUrl;
 
   } catch (error) {
@@ -145,7 +156,7 @@ export async function createDiditSession(userEmail = null) {
       return {
         success: true,
         session_id: sessionId,
-        verification_url: data.verification_url || `${baseUrl}/session?session_id=${sessionId}&api_key=${apiKey}&workflow_id=${workflowId}&callback_url=${encodeURIComponent(callbackUrl)}&user_data=${encodeURIComponent(userEmail || `shebn_user_${Date.now()}`)}`
+        verification_url: data.verification_url || `${baseUrl}?session_id=${sessionId}&api_key=${apiKey}&workflow_id=${workflowId}&callback_url=${encodeURIComponent(callbackUrl)}&user_data=${encodeURIComponent(userEmail || `shebn_user_${Date.now()}`)}`
       };
     }
   } catch (error) {
