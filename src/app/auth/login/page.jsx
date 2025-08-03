@@ -25,7 +25,7 @@ export default function LoginPage() {
     setSuccess('');
 
     try {
-      // Iniciar sesión con Supabase Auth
+      // Iniciar sesión con Supabase Auth kjoiol
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password
