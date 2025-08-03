@@ -26,8 +26,8 @@ function RegisterCallbackContent() {
           return;
         }
 
-        // Verificar el estado de la verificación
-        if (status === 'success' || status === 'verified') {
+        // Verificar el estado de la verificación según el demo oficial
+        if (status === 'success' || status === 'verified' || status === 'approved') {
           setStatus('success');
           setMessage('Verificación exitosa. Completando registro...');
 
@@ -38,6 +38,9 @@ function RegisterCallbackContent() {
           setTimeout(() => {
             router.push(`/auth/register?verified=true&session_id=${sessionId}`);
           }, 3000);
+        } else if (status === 'declined' || status === 'failed') {
+          setStatus('error');
+          setMessage('La verificación fue rechazada. Inténtalo de nuevo.');
         } else {
           setStatus('error');
           setMessage('La verificación no fue exitosa. Inténtalo de nuevo.');
