@@ -3,8 +3,7 @@
  * 
  * El plan gratuito de Didit funciona con:
  * - URL directa de verificación
- * - API Key configurable en el dashboard
- * - Webhooks V.2 soportados
+ * - API Key configurable
  * - Redirección simple
  */
 
@@ -12,19 +11,18 @@ import { diditConfig } from '../env';
 
 export async function generateDiditAuthUrl() {
   // URL directa del plan gratuito de Didit
-  const baseUrl = diditConfig.baseUrl;
+  const baseUrl = 'https://verification.didit.me/v2/sesión/';
   
-  // Parámetros para el plan gratuito
+  // Parámetros para el plan gratuito con API key
   const params = new URLSearchParams({
     user_id: `shebn_${Date.now()}`, // ID único para el usuario
-    callback_url: diditConfig.callbackUrl || `${window.location.origin}/auth/register/callback`, // URL de retorno
-    api_key: diditConfig.apiKey, // API Key configurada en el dashboard
+    callback_url: `${window.location.origin}/auth/register/callback`, // URL de retorno
+    api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw', // API Key de Didit
     metadata: JSON.stringify({
       timestamp: new Date().toISOString(),
       source: 'shebn',
       flow: 'registration',
-      plan: 'free',
-      webhook_version: diditConfig.webhookVersion
+      plan: 'free'
     })
   });
   
@@ -32,36 +30,33 @@ export async function generateDiditAuthUrl() {
 }
 
 export async function verifyDiditToken(token) {
-  // Para el plan gratuito, verificamos usando la API Key si está disponible
-  if (diditConfig.apiKey) {
-    try {
-      // Aquí podrías hacer una llamada a la API de Didit para verificar el token
-      // Por ahora, simulamos verificación exitosa
-      return {
-        success: true,
-        user: {
-          id: token,
-          verified: true,
-          plan: 'free',
-          api_verified: true
-        }
-      };
-    } catch (error) {
-      console.error('Error verificando token con Didit:', error);
-      // Fallback a verificación simulada
-    }
+  // Para el plan gratuito, verificamos usando la API Key
+  try {
+    // Aquí podrías hacer una llamada a la API de Didit para verificar el token
+    // Por ahora, simulamos verificación exitosa con API key
+    return {
+      success: true,
+      user: {
+        id: token,
+        verified: true,
+        plan: 'free',
+        api_verified: true,
+        api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw'
+      }
+    };
+  } catch (error) {
+    console.error('Error verificando token con Didit:', error);
+    // Fallback a verificación simulada
+    return {
+      success: true,
+      user: {
+        id: token,
+        verified: true,
+        plan: 'free',
+        api_verified: false
+      }
+    };
   }
-  
-  // Verificación simulada para el plan gratuito
-  return {
-    success: true,
-    user: {
-      id: token,
-      verified: true,
-      plan: 'free',
-      api_verified: false
-    }
-  };
 }
 
 /**
@@ -77,7 +72,7 @@ export async function checkDiditSession(sessionId) {
       id: sessionId,
       status: 'verified',
       plan: 'free',
-      webhook_version: diditConfig.webhookVersion
+      api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw'
     }
   };
 }
@@ -86,21 +81,12 @@ export async function checkDiditSession(sessionId) {
  * Función para procesar webhooks de Didit
  */
 export async function processDiditWebhook(webhookData) {
-  // Procesar webhook V.2 de Didit
-  if (diditConfig.webhookVersion === 'V.2') {
-    return {
-      success: true,
-      webhook_data: webhookData,
-      version: 'V.2',
-      processed: true
-    };
-  }
-  
-  // Procesar webhook V.1 de Didit
+  // Procesar webhook de Didit con API key
   return {
     success: true,
     webhook_data: webhookData,
-    version: 'V.1',
+    version: 'V.2',
+    api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
     processed: true
   };
 } 
