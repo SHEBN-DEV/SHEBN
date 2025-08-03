@@ -10,11 +10,11 @@ function DiditCallbackContent() {
   useEffect(() => {
     const processCallback = async () => {
       try {
-        // 1. Obtener parámetros esenciales
-        const sessionId = params.get('session_id');
+        // 1. Obtener parámetros esenciales (múltiples formatos posibles)
+        const sessionId = params.get('session_id') || params.get('sessionId') || params.get('id');
         let status = params.get('status') || 'approved'; // Default para plan gratuito
-        const userEmail = params.get('user_data');
-        const userId = params.get('user_id');
+        const userEmail = params.get('user_data') || params.get('email') || params.get('userEmail');
+        const userId = params.get('user_id') || params.get('userId');
 
         console.log('🔍 Parámetros recibidos de Didit:', {
           sessionId,
@@ -23,8 +23,34 @@ function DiditCallbackContent() {
           userId
         });
 
-        if (!sessionId || !userEmail) {
-          throw new Error('Faltan parámetros de verificación');
+        console.log('🔍 Todos los parámetros disponibles:', Object.fromEntries(params.entries()));
+
+        // Si no tenemos sessionId, intentar obtenerlo del localStorage
+        if (!sessionId) {
+          const pendingVerification = localStorage.getItem('pending_verification');
+          if (pendingVerification) {
+            console.log('🔍 Usando sessionId del localStorage:', pendingVerification);
+          }
+        }
+
+        // Si no tenemos userEmail, intentar obtenerlo del localStorage
+        if (!userEmail) {
+          const savedFormData = localStorage.getItem('registration_form_data');
+          if (savedFormData) {
+            const formData = JSON.parse(savedFormData);
+            console.log('🔍 Usando email del formulario guardado:', formData.email);
+            userEmail = formData.email;
+          }
+        }
+
+        if (!sessionId) {
+          console.error('❌ No se pudo obtener sessionId');
+          throw new Error('Falta session_id de verificación');
+        }
+
+        if (!userEmail) {
+          console.error('❌ No se pudo obtener userEmail');
+          throw new Error('Falta email de verificación');
         }
 
         const decodedEmail = decodeURIComponent(userEmail);
