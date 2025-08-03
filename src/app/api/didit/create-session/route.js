@@ -23,7 +23,7 @@ export async function POST(request) {
     const sessionId = `shebn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     console.log('📤 Enviando petición a Didit:', {
-      url: `https://verification.didit.me/v2/session/${sessionId}/decision/`,
+      url: `https://verification.didit.me/v2/session/`,
       method: 'POST',
       headers: {
         'accept': 'application/json',
@@ -34,7 +34,7 @@ export async function POST(request) {
     });
     
     // Crear sesión usando el endpoint correcto según la documentación
-    const response = await fetch(`https://verification.didit.me/v2/session/${sessionId}/decision/`, {
+    const response = await fetch(`https://verification.didit.me/v2/session/`, {
       method: 'POST',
       headers: {
         'accept': 'application/json',
@@ -42,6 +42,7 @@ export async function POST(request) {
         'x-api-key': apiKey
       },
       body: JSON.stringify({
+        session_id: sessionId,
         workflow_id: workflowId
       })
     });
