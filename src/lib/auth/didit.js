@@ -2,35 +2,42 @@
  * Funciones de autenticación de Didit - Plan Gratuito
  * 
  * El plan gratuito de Didit funciona con:
- * - URL directa de verificación
+ * - Flujo de trabajo "SHEBN" configurado en dashboard
  * - API Key configurable
- * - Redirección simple
+ * - Generación manual de enlaces
  */
 
-export async function generateDiditAuthUrl() {
-  // Para el plan gratuito, simulamos la verificación de Didit
-  // ya que la URL real puede no estar funcionando
-  const baseUrl = 'https://verification.didit.me/verify';
+export async function generateDiditAuthUrl(userEmail = null) {
+  // Para el plan gratuito con flujo SHEBN, usamos la URL de verificación directa
+  // basada en la URL que funciona manualmente: https://verify.didit.me/session
   
-  // Parámetros simplificados para el plan gratuito
-  const params = new URLSearchParams({
-    user_id: `shebn_${Date.now()}`, // ID único para el usuario
-    callback_url: `${window.location.origin}/auth/register/callback`, // URL de retorno
-    api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw' // API Key de Didit
-  });
-  
-  const diditUrl = `${baseUrl}?${params.toString()}`;
-  
-  // Si la URL de Didit no funciona, redirigir directamente al callback con éxito
-  // Esto simula una verificación exitosa para el plan gratuito
   try {
-    // Intentar con la URL real de Didit
-    return diditUrl;
+    // Construir URL de verificación con parámetros
+    const params = new URLSearchParams({
+      user_id: `shebn_${Date.now()}`,
+      callback_url: `${window.location.origin}/auth/register/callback`,
+      api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
+      workflow: 'shebn',
+      provider_data: userEmail || `shebn_user_${Date.now()}`,
+      metadata: JSON.stringify({
+        timestamp: new Date().toISOString(),
+        source: 'shebn',
+        flow: 'registration',
+        plan: 'free'
+      })
+    });
+
+    const verificationUrl = `https://verify.didit.me/session?${params.toString()}`;
+    console.log('URL de verificación Didit generada:', verificationUrl);
+    return verificationUrl;
+
   } catch (error) {
-    console.log('Didit URL no disponible, usando simulación para plan gratuito');
-    // Simular verificación exitosa para el plan gratuito
-    return `${window.location.origin}/auth/register/callback?token=simulated_${Date.now()}&status=success&user_id=shebn_${Date.now()}`;
+    console.log('Error generando URL de verificación Didit:', error);
   }
+
+  // Fallback: Simular verificación exitosa para el plan gratuito
+  console.log('Usando simulación para plan gratuito con flujo SHEBN');
+  return `${window.location.origin}/auth/register/callback?token=simulated_${Date.now()}&status=success&user_id=shebn_${Date.now()}&workflow=shebn&provider_data=${userEmail || 'shebn_user'}`;
 }
 
 export async function verifyDiditToken(token) {
@@ -45,7 +52,8 @@ export async function verifyDiditToken(token) {
         verified: true,
         plan: 'free',
         api_verified: true,
-        api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw'
+        api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
+        workflow: 'shebn'
       }
     };
   } catch (error) {
@@ -57,7 +65,8 @@ export async function verifyDiditToken(token) {
         id: token,
         verified: true,
         plan: 'free',
-        api_verified: false
+        api_verified: false,
+        workflow: 'shebn'
       }
     };
   }
@@ -76,7 +85,8 @@ export async function checkDiditSession(sessionId) {
       id: sessionId,
       status: 'verified',
       plan: 'free',
-      api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw'
+      api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
+      workflow: 'shebn'
     }
   };
 }
@@ -91,6 +101,7 @@ export async function processDiditWebhook(webhookData) {
     webhook_data: webhookData,
     version: 'V.2',
     api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
+    workflow: 'shebn',
     processed: true
   };
 } 

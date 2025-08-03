@@ -57,8 +57,8 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      // Generar URL de verificación Didit
-      const diditUrl = await generateDiditAuthUrl();
+      // Generar URL de verificación Didit con el email del usuario
+      const diditUrl = await generateDiditAuthUrl(formData.email);
       
       // Redirigir a Didit para verificación
       window.location.href = diditUrl;
