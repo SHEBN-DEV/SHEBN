@@ -14,11 +14,11 @@ const requiredEnvVars = {
 
 // Variables opcionales con valores por defecto
 const optionalEnvVars = {
-  // Didit (plan gratuito)
-  DIDIT_API_KEY: process.env.DIDIT_API_KEY || 'free_plan',
-  DIDIT_API_BASE_URL: process.env.DIDIT_API_BASE_URL || 'https://verification.didit.me',
-  DIDIT_WORKFLOW_ID: process.env.DIDIT_WORKFLOW_ID || 'free_plan',
-  DIDIT_WEBHOOK_SECRET: process.env.DIDIT_WEBHOOK_SECRET || 'free_plan_secret',
+  // Didit (plan gratuito) - usando nombres de Vercel
+  DIDIT_API_KEY: process.env.API_KEY || 'free_plan',
+  DIDIT_API_BASE_URL: process.env.NEXT_VERIFICATION_BASE_URL || 'https://verification.didit.me',
+  DIDIT_WORKFLOW_ID: process.env.VERIFICATION_WORKFLOW_ID || 'free_plan',
+  DIDIT_WEBHOOK_SECRET: process.env.VERIFICATION_CALLBACK_URL || 'free_plan_secret',
   
   // Otros
   NODE_ENV: process.env.NODE_ENV || 'development',
