@@ -308,7 +308,32 @@ function RegisterPageContent() {
         // Usar la URL de verificación proporcionada por Didit
         if (data.verification_url) {
           console.log('🔗 Redirigiendo a Didit:', data.verification_url);
-          window.location.href = data.verification_url;
+          
+          // Abrir Didit en una nueva ventana/pestaña
+          const diditWindow = window.open(data.verification_url, '_blank', 'width=800,height=600');
+          
+          // Mostrar mensaje al usuario
+          setSuccess('Verificación iniciada. Completa el proceso en la nueva ventana y luego regresa aquí.');
+          
+          // Verificar periódicamente si la verificación se completó
+          const checkVerification = setInterval(async () => {
+            try {
+              const checkResponse = await fetch(`/api/didit/check-verification?email=${encodeURIComponent(formData.email)}`);
+              if (checkResponse.ok) {
+                const checkData = await checkResponse.json();
+                if (checkData.verified) {
+                  clearInterval(checkVerification);
+                  setSuccess('¡Verificación completada! Procediendo con el registro...');
+                  setTimeout(() => {
+                    handleCompleteRegistration(formData, checkData.sessionId);
+                  }, 2000);
+                }
+              }
+            } catch (error) {
+              console.warn('Error verificando estado:', error);
+            }
+          }, 5000); // Verificar cada 5 segundos
+          
         } else {
           throw new Error('No se recibió URL de verificación de Didit');
         }
