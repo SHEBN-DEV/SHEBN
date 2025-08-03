@@ -16,9 +16,21 @@ export const supabaseConfig = {
 
 // Configuración de Didit (Plan Gratuito)
 export const diditConfig = {
-  // Plan gratuito no requiere API key
+  // API Key configurada en el dashboard de Didit
+  apiKey: process.env.DIDIT_API_KEY || '',
+  
+  // URL base de Didit
   baseUrl: 'https://verification.didit.me/v2/sesión/',
+  
+  // Versión del webhook (V.1 o V.2)
+  webhookVersion: process.env.DIDIT_WEBHOOK_VERSION || 'V.2',
+  
+  // URL del webhook configurada en Didit
+  webhookUrl: process.env.DIDIT_WEBHOOK_URL || 'https://shebn.vercel.app/api/didit/webhook',
+  
+  // Plan actual
   plan: 'free',
+  
   // URL de callback se genera dinámicamente
   callbackUrl: process.env.NEXT_PUBLIC_DIDIT_CALLBACK_URL || ''
 };
