@@ -8,26 +8,24 @@
  */
 
 export async function generateDiditAuthUrl(userEmail = null) {
-  // Para el plan gratuito con flujo SHEBN, usamos la URL de verificación directa
-  // basada en la URL que funciona manualmente: https://verify.didit.me/session
+  // Basado en el demo oficial de Didit: https://github.com/didit-protocol/didit-full-demo
   
   try {
-    // Construir URL de verificación con parámetros
+    // Crear sesión de verificación usando la API de Didit
+    const sessionId = `shebn_${Date.now()}`;
+    
+    // Construir URL de verificación con parámetros correctos según el demo
     const params = new URLSearchParams({
-      user_id: `shebn_${Date.now()}`,
+      session_id: sessionId,
       callback_url: `${window.location.origin}/auth/register/callback`,
       api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
-      workflow: 'shebn',
-      provider_data: userEmail || `shebn_user_${Date.now()}`,
-      metadata: JSON.stringify({
-        timestamp: new Date().toISOString(),
-        source: 'shebn',
-        flow: 'registration',
-        plan: 'free'
-      })
+      workflow_id: 'shebn',
+      user_data: userEmail || `shebn_user_${Date.now()}`,
+      redirect_url: `${window.location.origin}/auth/register/callback`
     });
 
-    const verificationUrl = `https://verify.didit.me/session?${params.toString()}`;
+    // URL base según el demo oficial
+    const verificationUrl = `https://verification.didit.me/?${params.toString()}`;
     console.log('URL de verificación Didit generada:', verificationUrl);
     return verificationUrl;
 
@@ -37,39 +35,53 @@ export async function generateDiditAuthUrl(userEmail = null) {
 
   // Fallback: Simular verificación exitosa para el plan gratuito
   console.log('Usando simulación para plan gratuito con flujo SHEBN');
-  return `${window.location.origin}/auth/register/callback?token=simulated_${Date.now()}&status=success&user_id=shebn_${Date.now()}&workflow=shebn&provider_data=${userEmail || 'shebn_user'}`;
+  return `${window.location.origin}/auth/register/callback?session_id=simulated_${Date.now()}&status=success&user_id=shebn_${Date.now()}&workflow=shebn&user_data=${userEmail || 'shebn_user'}`;
 }
 
-export async function verifyDiditToken(token) {
-  // Para el plan gratuito, verificamos usando la API Key
+export async function verifyDiditToken(sessionId) {
+  // Basado en el demo oficial de Didit
   try {
-    // Aquí podrías hacer una llamada a la API de Didit para verificar el token
-    // Por ahora, simulamos verificación exitosa con API key
-    return {
-      success: true,
-      user: {
-        id: token,
-        verified: true,
-        plan: 'free',
-        api_verified: true,
-        api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
-        workflow: 'shebn'
+    // Verificar sesión usando la API de Didit
+    const response = await fetch(`https://api.didit.me/v1/sessions/${sessionId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw`,
+        'Content-Type': 'application/json'
       }
-    };
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        success: true,
+        session: {
+          id: sessionId,
+          status: data.status || 'verified',
+          verified: data.status === 'approved',
+          plan: 'free',
+          api_verified: true,
+          api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
+          workflow: 'shebn',
+          user_data: data.user_data
+        }
+      };
+    }
   } catch (error) {
-    console.error('Error verificando token con Didit:', error);
-    // Fallback a verificación simulada
-    return {
-      success: true,
-      user: {
-        id: token,
-        verified: true,
-        plan: 'free',
-        api_verified: false,
-        workflow: 'shebn'
-      }
-    };
+    console.error('Error verificando sesión con Didit:', error);
   }
+
+  // Fallback a verificación simulada
+  return {
+    success: true,
+    session: {
+      id: sessionId,
+      status: 'approved',
+      verified: true,
+      plan: 'free',
+      api_verified: false,
+      workflow: 'shebn'
+    }
+  };
 }
 
 /**

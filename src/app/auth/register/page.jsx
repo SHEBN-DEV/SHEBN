@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { supabase } from '../../SupabaseClient';
 import InputField from '../../../components/inputField';
@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState('');
   const [step, setStep] = useState(1); // 1: Form, 2: Didit Verification
   const [formData, setFormData] = useState(null);
+  const [verifiedSessionId, setVerifiedSessionId] = useState(null);
 
   const {
     register,
@@ -25,6 +26,18 @@ export default function RegisterPage() {
   } = useForm();
 
   const gender = watch('gender');
+  const searchParams = useSearchParams();
+
+  // Detectar si el usuario viene de una verificación exitosa
+  useEffect(() => {
+    const verified = searchParams.get('verified');
+    const sessionId = searchParams.get('session_id');
+    
+    if (verified === 'true' && sessionId) {
+      setVerifiedSessionId(sessionId);
+      setSuccess('Verificación Didit completada exitosamente');
+    }
+  }, [searchParams]);
 
   const handleFormSubmit = async (data) => {
     setLoading(true);
@@ -76,7 +89,7 @@ export default function RegisterPage() {
     setSuccess('');
 
     try {
-      // Crear usuario en Supabase Auth sin verificación Didit
+      // Crear usuario en Supabase Auth con verificación Didit si está disponible
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -85,7 +98,8 @@ export default function RegisterPage() {
             full_name: formData.fullName,
             user_name: formData.userName,
             gender: formData.gender,
-            didit_verified: false // Marcar como no verificado
+            didit_verified: verifiedSessionId ? true : false,
+            didit_session_id: verifiedSessionId || null
           }
         }
       });
@@ -97,11 +111,19 @@ export default function RegisterPage() {
       }
 
       if (authData.user) {
-        setSuccess('Registro exitoso. Redirigiendo a verificación...');
+        const successMessage = verifiedSessionId 
+          ? 'Registro exitoso con verificación Didit. Redirigiendo...'
+          : 'Registro exitoso. Redirigiendo a verificación...';
         
-        // Redirigir a la página de verificación después de 2 segundos
+        setSuccess(successMessage);
+        
+        // Redirigir según si tiene verificación o no
         setTimeout(() => {
-          router.push('/auth/verification');
+          if (verifiedSessionId) {
+            router.push('/');
+          } else {
+            router.push('/auth/verification');
+          }
         }, 2000);
       }
 

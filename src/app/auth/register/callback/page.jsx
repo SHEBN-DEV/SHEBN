@@ -14,13 +14,15 @@ function RegisterCallbackContent() {
     const handleCallback = async () => {
       try {
         // Obtener parámetros de la URL
-        const token = searchParams.get('token');
+        const sessionId = searchParams.get('session_id');
         const status = searchParams.get('status');
         const userId = searchParams.get('user_id');
+        const workflow = searchParams.get('workflow');
+        const userData = searchParams.get('user_data');
 
-        if (!token) {
+        if (!sessionId) {
           setStatus('error');
-          setMessage('Token de verificación no encontrado');
+          setMessage('ID de sesión no encontrado');
           return;
         }
 
@@ -32,9 +34,9 @@ function RegisterCallbackContent() {
           // Aquí podrías hacer una llamada a tu API para completar el registro
           // con el token de verificación de Didit
           
-          // Por ahora, redirigimos a la página de verificación de email
+          // Redirigir a la página de registro con el session_id
           setTimeout(() => {
-            router.push('/auth/verification');
+            router.push(`/auth/register?verified=true&session_id=${sessionId}`);
           }, 3000);
         } else {
           setStatus('error');
