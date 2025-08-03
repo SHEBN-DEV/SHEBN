@@ -1,5 +1,20 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '../../../SupabaseClient';
+import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
+
+// Usar service role key para permisos de escritura
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY // Clave privilegiada para escritura
+);
+
+// Función de verificación HMAC
+function verifySignature(payload, signature) {
+  if (!signature || !process.env.DIDIT_WEBHOOK_SECRET) return false;
+  const hmac = crypto.createHmac('sha256', process.env.DIDIT_WEBHOOK_SECRET);
+  const expectedSignature = hmac.update(payload).digest('hex');
+  return signature === expectedSignature;
+}
 
 // GET method para probar que el endpoint existe
 export async function GET() {
@@ -13,9 +28,29 @@ export async function GET() {
 export async function POST(request) {
   try {
     console.log('🔔 Webhook recibido de Didit');
+
+    // Obtener headers para verificación HMAC
+    const signature = request.headers.get('x-didit-signature');
+    const payload = await request.text();
     
-    // Obtener el body del webhook
-    const webhookData = await request.json();
+    console.log('🔐 Verificando firma HMAC...');
+    console.log('📝 Payload recibido:', payload);
+    console.log('🔑 Firma recibida:', signature);
+
+    // Verificar firma HMAC si está disponible
+    if (signature && process.env.DIDIT_WEBHOOK_SECRET) {
+      const isValid = verifySignature(payload, signature);
+      if (!isValid) {
+        console.error('❌ Firma HMAC inválida');
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+      }
+      console.log('✅ Firma HMAC válida');
+    } else {
+      console.warn('⚠️ No se pudo verificar firma HMAC (continuando...)');
+    }
+
+    // Parsear el payload
+    const webhookData = JSON.parse(payload);
     
     console.log('📥 Datos del webhook:', webhookData);
     
@@ -29,44 +64,83 @@ export async function POST(request) {
     
     console.log('🔍 Procesando webhook para sesión:', session_id);
     
-    // Buscar usuario por session_id en la tabla profiles
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('didit_session_id', session_id)
-      .single();
-    
-    if (profileError && profileError.code !== 'PGRST116') {
-      console.error('❌ Error buscando perfil:', profileError);
-    }
-    
-    if (profileData) {
-      console.log('✅ Perfil encontrado:', profileData.email);
-      
-      // Actualizar el perfil con el status del webhook
-      const { data: updateData, error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          verification_status: status,
-          didit_verified: status === 'approved' || status === 'success',
-          verification_data: {
-            ...webhookData,
-            webhook_received_at: new Date().toISOString()
-          },
-          updated_at: new Date().toISOString()
-        })
-        .eq('didit_session_id', session_id)
-        .select();
-      
-      if (updateError) {
-        console.error('❌ Error actualizando perfil:', updateError);
-        return NextResponse.json({ error: 'Error actualizando perfil' }, { status: 500 });
-      }
-      
-      console.log('✅ Perfil actualizado:', updateData);
-    } else {
-      console.log('⚠️ No se encontró perfil para session_id:', session_id);
-    }
+             // Buscar usuario por session_id en la tabla profiles
+         const { data: profileData, error: profileError } = await supabase
+           .from('profiles')
+           .select('*')
+           .eq('didit_session_id', session_id)
+           .single();
+
+         if (profileError && profileError.code !== 'PGRST116') {
+           console.error('❌ Error buscando perfil:', profileError);
+         }
+
+         if (profileData) {
+           console.log('✅ Perfil encontrado:', profileData.email);
+
+           // Actualizar el perfil con el status del webhook usando service role
+           const { data: updateData, error: updateError } = await supabase
+             .from('profiles')
+             .update({
+               verification_status: status,
+               didit_verified: status === 'approved' || status === 'success',
+               verification_data: {
+                 ...webhookData,
+                 webhook_received_at: new Date().toISOString()
+               },
+               updated_at: new Date().toISOString()
+             })
+             .eq('didit_session_id', session_id)
+             .select();
+
+           if (updateError) {
+             console.error('❌ Error actualizando perfil:', updateError);
+             return NextResponse.json({ error: 'Error actualizando perfil' }, { status: 500 });
+           }
+
+           console.log('✅ Perfil actualizado:', updateData);
+         } else {
+           console.log('⚠️ No se encontró perfil para session_id:', session_id);
+           
+           // Intentar buscar por email si tenemos user_data
+           if (webhookData.user_data) {
+             console.log('🔍 Buscando por email:', webhookData.user_data);
+             
+             const { data: emailProfile, error: emailError } = await supabase
+               .from('profiles')
+               .select('*')
+               .eq('email', webhookData.user_data)
+               .single();
+             
+             if (emailProfile) {
+               console.log('✅ Perfil encontrado por email:', emailProfile.email);
+               
+               // Actualizar perfil encontrado por email
+               const { data: emailUpdateData, error: emailUpdateError } = await supabase
+                 .from('profiles')
+                 .update({
+                   verification_status: status,
+                   didit_verified: status === 'approved' || status === 'success',
+                   didit_session_id: session_id,
+                   verification_data: {
+                     ...webhookData,
+                     webhook_received_at: new Date().toISOString()
+                   },
+                   updated_at: new Date().toISOString()
+                 })
+                 .eq('email', webhookData.user_data)
+                 .select();
+               
+               if (emailUpdateError) {
+                 console.error('❌ Error actualizando perfil por email:', emailUpdateError);
+               } else {
+                 console.log('✅ Perfil actualizado por email:', emailUpdateData);
+               }
+             } else {
+               console.log('⚠️ No se encontró perfil por email tampoco');
+             }
+           }
+         }
     
     // Guardar log del webhook
     try {
