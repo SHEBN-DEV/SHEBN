@@ -142,7 +142,62 @@ function RegisterPageContent() {
       }
 
       if (authData.user) {
-        console.log('✅ Usuario creado en Supabase:', authData.user);
+        console.log('✅ Usuario creado en Supabase Auth:', authData.user);
+        
+        // Crear perfil manualmente en caso de que el trigger no funcione
+        try {
+          console.log('📝 Creando perfil manualmente...');
+          
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: authData.user.id,
+              full_name: formData.fullName,
+              user_name: formData.userName,
+              email: formData.email,
+              gender: formData.gender,
+              verification_status: verification?.status || 'approved',
+              didit_verified: verification ? true : false,
+              didit_session_id: sessionId,
+              verification_data: verification ? {
+                session_id: sessionId,
+                status: verification.status,
+                verified_at: verification.verifiedAt
+              } : null
+            })
+            .select()
+            .single();
+          
+          if (profileError) {
+            console.warn('⚠️ Error creando perfil manualmente:', profileError);
+            // Continuar aunque falle, el trigger debería haberlo creado
+          } else {
+            console.log('✅ Perfil creado manualmente:', profileData);
+          }
+        } catch (profileError) {
+          console.warn('⚠️ Error en creación manual de perfil:', profileError);
+        }
+        
+        // Verificar que el perfil existe
+        try {
+          console.log('🔍 Verificando que el perfil existe...');
+          
+          const { data: existingProfile, error: checkError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+          
+          if (checkError) {
+            console.error('❌ Error verificando perfil:', checkError);
+          } else if (existingProfile) {
+            console.log('✅ Perfil verificado:', existingProfile);
+          } else {
+            console.error('❌ Perfil no encontrado después de la creación');
+          }
+        } catch (verifyError) {
+          console.error('❌ Error en verificación de perfil:', verifyError);
+        }
         
         // Limpiar datos temporales
         localStorage.removeItem('registration_form_data');
