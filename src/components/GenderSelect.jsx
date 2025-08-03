@@ -1,14 +1,13 @@
 "use client";
 
-const GenderSelect = ({ label, name, register, rules, error }) => (
+const GenderSelect = ({ register, error }) => (
   <div className="w-full flex flex-col justify-center items-start">
-    <label htmlFor={name} className="w-full bg-[#2d2e33] rounded-t-2xl p-1 pl-4 text-sm">
-      {label}
+    <label htmlFor="gender" className="w-full bg-[#2d2e33] rounded-t-2xl p-1 pl-4 text-sm">
+      Género
     </label>
     <select
-      name={name}
-      id={name}
-      {...register(name, rules)}
+      id="gender"
+      {...register("gender", { required: "Género es requerido" })}
       className={`w-full bg-[#2d2e33] rounded-b-2xl p-3 outline-0 text-white ${
         error ? "border border-[#ff29d7]" : ""
       }`}
