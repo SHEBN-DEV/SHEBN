@@ -33,20 +33,30 @@ function RegisterPageContent() {
     const verified = searchParams.get('verified');
     const sessionId = searchParams.get('session_id');
     
+    console.log('🔍 Detectando parámetros de verificación:', { verified, sessionId });
+    
     if (verified === 'true' && sessionId) {
+      console.log('✅ Verificación detectada, procesando...');
       setVerifiedSessionId(sessionId);
       setSuccess('Verificación Didit completada exitosamente');
       
       // Si tenemos datos del formulario guardados, completar el registro automáticamente
       const savedFormData = localStorage.getItem('registration_form_data');
+      console.log('📋 Datos del formulario guardados:', { hasData: !!savedFormData });
+      
       if (savedFormData) {
         const parsedFormData = JSON.parse(savedFormData);
         setFormData(parsedFormData);
+        
+        console.log('🔄 Iniciando registro automático en 2 segundos...');
         
         // Completar el registro automáticamente
         setTimeout(() => {
           handleCompleteRegistration(parsedFormData, sessionId);
         }, 2000);
+      } else {
+        console.error('❌ No se encontraron datos del formulario guardados');
+        setError('Error: No se encontraron datos del formulario');
       }
     }
   }, [searchParams]);
@@ -86,11 +96,25 @@ function RegisterPageContent() {
     setSuccess('');
 
     try {
+      console.log('🚀 Iniciando proceso de registro completo...');
+      
       // Obtener datos de verificación
       const verificationData = localStorage.getItem('didit_verification');
       const verification = verificationData ? JSON.parse(verificationData) : null;
 
-      console.log('🔧 Completando registro con verificación:', { formData, sessionId, verification });
+      console.log('🔧 Datos para registro:', { 
+        formData, 
+        sessionId, 
+        verification,
+        hasVerificationData: !!verificationData
+      });
+
+      // Validar datos requeridos
+      if (!formData.email || !formData.password) {
+        throw new Error('Faltan datos requeridos para el registro');
+      }
+
+      console.log('📤 Creando usuario en Supabase Auth...');
 
       // Crear usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -107,6 +131,8 @@ function RegisterPageContent() {
           }
         }
       });
+
+      console.log('📥 Respuesta de Supabase:', { authData, authError });
 
       if (authError) {
         console.error('❌ Error en registro Supabase:', authError);
@@ -129,6 +155,9 @@ function RegisterPageContent() {
         setTimeout(() => {
           router.push('/dashboard?verified=true');
         }, 2000);
+      } else {
+        console.error('❌ No se recibió usuario de Supabase');
+        setError('Error: No se pudo crear el usuario');
       }
 
     } catch (error) {
