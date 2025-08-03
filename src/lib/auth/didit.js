@@ -7,23 +7,15 @@
  * - Redirección simple
  */
 
-import { diditConfig } from '../env';
-
 export async function generateDiditAuthUrl() {
-  // URL directa del plan gratuito de Didit
-  const baseUrl = 'https://verification.didit.me/v2/sesión/';
+  // URL correcta para el plan gratuito de Didit
+  const baseUrl = 'https://verification.didit.me';
   
-  // Parámetros para el plan gratuito con API key
+  // Parámetros simplificados para el plan gratuito
   const params = new URLSearchParams({
     user_id: `shebn_${Date.now()}`, // ID único para el usuario
     callback_url: `${window.location.origin}/auth/register/callback`, // URL de retorno
-    api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw', // API Key de Didit
-    metadata: JSON.stringify({
-      timestamp: new Date().toISOString(),
-      source: 'shebn',
-      flow: 'registration',
-      plan: 'free'
-    })
+    api_key: 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw' // API Key de Didit
   });
   
   return `${baseUrl}?${params.toString()}`;
