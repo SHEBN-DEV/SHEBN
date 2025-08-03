@@ -1,11 +1,6 @@
 {
   "version": 2,
   "name": "shebn",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "env": {
-    "NODE_ENV": "production"
-  },
   "functions": {
     "src/app/api/**/*.js": {
       "maxDuration": 30

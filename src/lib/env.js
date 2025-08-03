@@ -7,13 +7,13 @@ const requiredEnvVars = {
   // Supabase
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  
-  // Next.js
-  NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
 };
 
 // Variables opcionales con valores por defecto
 const optionalEnvVars = {
+  // Next.js
+  NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'https://shebn.vercel.app',
+  
   // Didit (plan gratuito) - usando nombres de Vercel
   DIDIT_API_KEY: process.env.API_KEY || 'free_plan',
   DIDIT_API_BASE_URL: process.env.NEXT_VERIFICATION_BASE_URL || 'https://verification.didit.me',
@@ -96,10 +96,10 @@ export const supabaseConfig = {
  * Configuración de Didit
  */
 export const diditConfig = {
-  apiKey: process.env.DIDIT_API_KEY,
-  apiBaseUrl: process.env.DIDIT_API_BASE_URL || 'https://api.didit.me',
-  workflowId: process.env.DIDIT_WORKFLOW_ID,
-  webhookSecret: process.env.DIDIT_WEBHOOK_SECRET,
+  apiKey: process.env.DIDIT_API_KEY || 'free_plan',
+  apiBaseUrl: process.env.DIDIT_API_BASE_URL || 'https://verification.didit.me',
+  workflowId: process.env.DIDIT_WORKFLOW_ID || 'free_plan',
+  webhookSecret: process.env.DIDIT_WEBHOOK_SECRET || 'free_plan_secret',
 };
 
 // Validar variables en tiempo de importación (solo en desarrollo)

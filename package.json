@@ -29,7 +29,7 @@
     "eslint-config-next": "15.3.2",
     "tailwindcss": "^4"
   },
-  "description": "<<<<<<< HEAD\r This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).",
+  "description": "SHEBN - Plataforma exclusiva para mujeres con verificación KYC",
   "main": "index.js",
   "repository": {
     "type": "git",
