@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     user_name TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE NOT NULL,
     gender TEXT NOT NULL CHECK (gender IN ('female', 'male', 'other')),
-    verification_status TEXT DEFAULT 'pending' CHECK (verification_status IN ('pending', 'completed', 'rejected', 'expired', 'error')),
+    verification_status TEXT DEFAULT 'pending' CHECK (verification_status IN ('pending', 'completed', 'rejected', 'expired', 'error', 'approved')),
+    didit_verified BOOLEAN DEFAULT FALSE,
+    didit_session_id TEXT,
+    verification_data JSONB,
     bio TEXT,
     location TEXT,
     portfolio_url TEXT,
@@ -217,14 +220,35 @@ CREATE TRIGGER validate_gender_trigger
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, full_name, user_name, email, gender, verification_status)
+    INSERT INTO public.profiles (
+        id, 
+        full_name, 
+        user_name, 
+        email, 
+        gender, 
+        verification_status,
+        didit_verified,
+        didit_session_id,
+        verification_data
+    )
     VALUES (
         NEW.id,
         COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuario'),
         COALESCE(NEW.raw_user_meta_data->>'user_name', 'usuario_' || substr(NEW.id::text, 1, 8)),
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'gender', 'female'),
-        'pending'
+        COALESCE(NEW.raw_user_meta_data->>'verification_status', 'pending'),
+        COALESCE((NEW.raw_user_meta_data->>'didit_verified')::boolean, false),
+        NEW.raw_user_meta_data->>'didit_session_id',
+        CASE 
+            WHEN NEW.raw_user_meta_data->>'didit_session_id' IS NOT NULL 
+            THEN jsonb_build_object(
+                'session_id', NEW.raw_user_meta_data->>'didit_session_id',
+                'status', COALESCE(NEW.raw_user_meta_data->>'verification_status', 'pending'),
+                'created_at', NOW()
+            )
+            ELSE NULL
+        END
     );
     RETURN NEW;
 END;
