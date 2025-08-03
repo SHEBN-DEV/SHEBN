@@ -8,42 +8,41 @@
  */
 
 export async function generateDiditAuthUrl(userEmail = null) {
-  // Basado en el demo oficial de Didit: https://github.com/didit-protocol/didit-full-demo
+  // Basado en la documentación oficial de Didit
   
   try {
-    // Usar las variables de entorno según el demo oficial
-    const baseUrl = process.env.NEXT_VERIFICATION_BASE_URL || 'https://verification.didit.me';
     const apiKey = process.env.API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
     const workflowId = process.env.VERIFICATION_WORKFLOW_ID || 'shebn';
     const callbackUrl = process.env.VERIFICATION_CALLBACK_URL || `${window.location.origin}/auth/register/callback`;
     
-    // Crear sesión de verificación usando la API de Didit
+    // Crear sesión usando el endpoint POST correcto según la documentación
     const sessionId = `shebn_${Date.now()}`;
     
-    // Intentar crear sesión primero usando la API
-    const sessionResult = await createDiditSession(userEmail);
-    
-    if (sessionResult.success && sessionResult.verification_url) {
-      console.log('URL de verificación Didit generada via API:', sessionResult.verification_url);
-      return sessionResult.verification_url;
-    }
-    
-    // Fallback: Construir URL manualmente con diferentes formatos
-    const urlFormats = [
-      // Formato 1: Sin /session
-      `${baseUrl}?session_id=${sessionId}&callback_url=${encodeURIComponent(callbackUrl)}&api_key=${apiKey}&workflow_id=${workflowId}&user_data=${encodeURIComponent(userEmail || `shebn_user_${Date.now()}`)}`,
-      
-      // Formato 2: Con /verify
-      `${baseUrl}/verify?session_id=${sessionId}&callback_url=${encodeURIComponent(callbackUrl)}&api_key=${apiKey}&workflow_id=${workflowId}&user_data=${encodeURIComponent(userEmail || `shebn_user_${Date.now()}`)}`,
-      
-      // Formato 3: Con /v2/session
-      `${baseUrl}/v2/session?session_id=${sessionId}&callback_url=${encodeURIComponent(callbackUrl)}&api_key=${apiKey}&workflow_id=${workflowId}&user_data=${encodeURIComponent(userEmail || `shebn_user_${Date.now()}`)}`
-    ];
+    const response = await fetch('https://verification.didit.me/v2/session/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        workflow_id: workflowId,
+        callback_url: callbackUrl,
+        user_data: userEmail || `shebn_user_${Date.now()}`
+      })
+    });
 
-    // Probar el primer formato
-    const verificationUrl = urlFormats[0];
-    console.log('URL de verificación Didit generada (formato 1):', verificationUrl);
-    return verificationUrl;
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Sesión creada con Didit API:', data);
+      
+      if (data.verification_url) {
+        console.log('URL de verificación Didit generada:', data.verification_url);
+        return data.verification_url;
+      }
+    } else {
+      console.warn('⚠️ Error creando sesión con API:', response.status);
+    }
 
   } catch (error) {
     console.log('Error generando URL de verificación Didit:', error);

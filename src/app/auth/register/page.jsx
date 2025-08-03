@@ -73,25 +73,44 @@ function RegisterPageContent() {
       // Guardar temporalmente el email en localStorage para recuperarlo en el callback
       localStorage.setItem('pending_verification', formData.email);
       
-      // Generar URL de verificación Didit con parámetros según el repo oficial
-      const params = new URLSearchParams({
-        api_key: process.env.NEXT_PUBLIC_API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
-        workflow_id: 'shebn',
-        user_data: encodeURIComponent(formData.email),
-        callback_url: encodeURIComponent('https://shebn.vercel.app/auth/register/callback'),
-        session_id: `shebn_${Date.now()}`
+      const sessionId = `shebn_${Date.now()}`;
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
+      
+      // Crear sesión usando el endpoint POST correcto según la documentación
+      const response = await fetch('https://verification.didit.me/v2/session/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          workflow_id: 'shebn',
+          callback_url: 'https://shebn.vercel.app/auth/register/callback',
+          user_data: formData.email
+        })
       });
 
-      const diditUrl = `https://verification.didit.me?${params.toString()}`;
-      
-      console.log('🔗 Redirigiendo a Didit:', diditUrl);
-      
-      // Redirigir a Didit para verificación
-      window.location.href = diditUrl;
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Sesión creada con Didit:', data);
+        
+        // Usar la URL de verificación proporcionada por Didit
+        if (data.verification_url) {
+          console.log('🔗 Redirigiendo a Didit:', data.verification_url);
+          window.location.href = data.verification_url;
+        } else {
+          throw new Error('No se recibió URL de verificación de Didit');
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Error creando sesión Didit:', response.status, errorData);
+        throw new Error(`Error al crear sesión: ${response.status}`);
+      }
       
     } catch (error) {
       console.error('Error al iniciar verificación Didit:', error);
-      setError('Error al iniciar la verificación');
+      setError('Error al iniciar la verificación: ' + error.message);
       setLoading(false);
     }
   };
