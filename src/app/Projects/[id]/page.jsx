@@ -1,6 +1,6 @@
 import React from 'react';
-import ProjectsDetail from '../../components/ProjectsDetail';
-import Sidebar from '../../components/Sidebar';
+import ProjectsDetail from '../../../components/ProjectsDetail';
+import Sidebar from '../../../components/Sidebar';
 
 const ProjectDetailPage = ({ params }) => {
   const { id } = params;

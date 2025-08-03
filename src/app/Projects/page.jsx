@@ -1,9 +1,9 @@
 
 import React from "react";
-import Sidebar from "../components/Sidebar";
-import Discover from "../components/Discover";
-import TrendingCards from "../components/TrendingCards";
-import CategoryGrid from "../components/CategoryGrid";
+import Sidebar from "../../components/Sidebar";
+import Discover from "../../components/Discover";
+import TrendingCards from "../../components/TrendingCards";
+import CategoryGrid from "../../components/CategoryGrid";
 
 
 

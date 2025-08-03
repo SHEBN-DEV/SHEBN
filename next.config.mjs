@@ -33,10 +33,8 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
   
-  // Configuración de experimental para Web3
-  experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
-  },
+  // Configuración actualizada para Next.js 15
+  serverExternalPackages: ['@supabase/supabase-js'],
 };
 
 export default nextConfig;

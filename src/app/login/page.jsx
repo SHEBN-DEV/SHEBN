@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form"; //verificacion de campos
 import { supabase } from '../SupabaseClient'; //Conexion con base de datos
-import InputField from "../components/inputField";
-import PasswordField from "../components/PasswordField";
+import InputField from "../../components/inputField";
+import PasswordField from "../../components/PasswordField";
 
 
 const Login = () => {

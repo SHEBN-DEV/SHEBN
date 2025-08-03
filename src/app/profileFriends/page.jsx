@@ -1,9 +1,9 @@
 import React from "react";
-import Sidebar from "../components/Sidebar";
-import Discover from "../components/Discover";
-import Invitation from "../components/Invitation";
-import ButtonProfile from "../components/ButtonProfile";
-import OnlineFriendsList from "../components/OnlineFriendsList";
+import Sidebar from "../../components/Sidebar";
+import Discover from "../../components/Discover";
+import Invitation from "../../components/Invitation";
+import ButtonProfile from "../../components/ButtonProfile";
+import OnlineFriendsList from "../../components/OnlineFriendsList";
 
 const profileFriends = () => {
 
