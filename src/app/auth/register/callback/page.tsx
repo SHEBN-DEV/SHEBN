@@ -52,32 +52,20 @@ function DiditCallbackContent() {
           console.warn('⚠️ Error al validar con Didit API:', apiError);
         }
 
-        // 3. Actualizar usuario en Supabase
-        const { data, error } = await supabase
-          .from('profiles')
-          .update({
-            didit_verified: status === 'approved' || status === 'success',
-            verification_status: status,
-            didit_session_id: sessionId,
-            verification_data: {
-              session_id: sessionId,
-              status: status,
-              verified_at: new Date().toISOString()
-            },
-            updated_at: new Date().toISOString()
-          })
-          .eq('email', decodedEmail)
-          .select();
+        // 3. Guardar datos de verificación en localStorage para completar registro
+        const verificationData = {
+          sessionId,
+          status,
+          verifiedAt: new Date().toISOString(),
+          email: decodedEmail
+        };
+        
+        localStorage.setItem('didit_verification', JSON.stringify(verificationData));
+        
+        console.log('✅ Datos de verificación guardados:', verificationData);
 
-        if (error) {
-          console.error('❌ Error actualizando Supabase:', error);
-          throw error;
-        }
-
-        console.log('✅ Usuario actualizado en Supabase:', data);
-
-        // 4. Redirigir con estado de éxito
-        router.push('/dashboard?verified=true');
+        // 4. Redirigir al registro para completar el proceso
+        router.push('/auth/register?verified=true&session_id=' + sessionId);
 
       } catch (error) {
         console.error('❌ Error en callback:', error);

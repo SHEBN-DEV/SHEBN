@@ -36,6 +36,18 @@ function RegisterPageContent() {
     if (verified === 'true' && sessionId) {
       setVerifiedSessionId(sessionId);
       setSuccess('Verificación Didit completada exitosamente');
+      
+      // Si tenemos datos del formulario guardados, completar el registro automáticamente
+      const savedFormData = localStorage.getItem('registration_form_data');
+      if (savedFormData) {
+        const parsedFormData = JSON.parse(savedFormData);
+        setFormData(parsedFormData);
+        
+        // Completar el registro automáticamente
+        setTimeout(() => {
+          handleCompleteRegistration(parsedFormData, sessionId);
+        }, 2000);
+      }
     }
   }, [searchParams]);
 
@@ -52,6 +64,9 @@ function RegisterPageContent() {
         return;
       }
 
+      // Guardar datos del formulario en localStorage
+      localStorage.setItem('registration_form_data', JSON.stringify(data));
+
       // Guardar datos del formulario y pasar al paso 2
       setFormData(data);
       setStep(2);
@@ -60,6 +75,65 @@ function RegisterPageContent() {
     } catch (error) {
       console.error('Error en validación:', error);
       setError('Error interno del servidor');
+    }
+
+    setLoading(false);
+  };
+
+  const handleCompleteRegistration = async (formData, sessionId) => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // Obtener datos de verificación
+      const verificationData = localStorage.getItem('didit_verification');
+      const verification = verificationData ? JSON.parse(verificationData) : null;
+
+      console.log('🔧 Completando registro con verificación:', { formData, sessionId, verification });
+
+      // Crear usuario en Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            user_name: formData.userName,
+            gender: formData.gender,
+            didit_verified: verification ? true : false,
+            didit_session_id: sessionId,
+            verification_status: verification?.status || 'approved'
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('❌ Error en registro Supabase:', authError);
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (authData.user) {
+        console.log('✅ Usuario creado en Supabase:', authData.user);
+        
+        // Limpiar datos temporales
+        localStorage.removeItem('registration_form_data');
+        localStorage.removeItem('didit_verification');
+        localStorage.removeItem('pending_verification');
+        
+        setSuccess('¡Registro completado exitosamente! Redirigiendo al dashboard...');
+        
+        // Redirigir al dashboard
+        setTimeout(() => {
+          router.push('/dashboard?verified=true');
+        }, 2000);
+      }
+
+    } catch (error) {
+      console.error('❌ Error completando registro:', error);
+      setError('Error al completar el registro: ' + error.message);
     }
 
     setLoading(false);
