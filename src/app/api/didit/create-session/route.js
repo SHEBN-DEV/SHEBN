@@ -22,6 +22,8 @@ export async function POST(request) {
     // Generar un sessionId único
     const sessionId = `shebn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
+    const callbackUrl = `https://shebn.vercel.app/auth/register/callback?user_data=${encodeURIComponent(email)}`;
+    
     console.log('📤 Enviando petición a Didit:', {
       url: `https://verification.didit.me/v2/session/`,
       method: 'POST',
@@ -30,7 +32,8 @@ export async function POST(request) {
         'content-type': 'application/json',
         'x-api-key': apiKey ? 'Presente' : 'Faltante'
       },
-      sessionId: sessionId
+      sessionId: sessionId,
+      callbackUrl: callbackUrl
     });
     
     // Crear sesión usando el endpoint correcto según la documentación
@@ -43,7 +46,8 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         session_id: sessionId,
-        workflow_id: workflowId
+        workflow_id: workflowId,
+        callback_url: `https://shebn.vercel.app/auth/register/callback?user_data=${encodeURIComponent(email)}`
       })
     });
 
