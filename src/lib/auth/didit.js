@@ -18,19 +18,17 @@ export async function generateDiditAuthUrl(userEmail = null) {
     // Crear sesión usando el endpoint POST correcto según la documentación
     const sessionId = `shebn_${Date.now()}`;
     
-    const response = await fetch('https://verification.didit.me/v2/session/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        session_id: sessionId,
-        workflow_id: workflowId,
-        callback_url: callbackUrl,
-        user_data: userEmail || `shebn_user_${Date.now()}`
-      })
-    });
+         const response = await fetch('https://verification.didit.me/v2/session/', {
+       method: 'POST',
+       headers: {
+         'accept': 'application/json',
+         'content-type': 'application/json',
+         'x-api-key': apiKey
+       },
+       body: JSON.stringify({
+         workflow_id: workflowId
+       })
+     });
 
     if (response.ok) {
       const data = await response.json();

@@ -76,20 +76,18 @@ function RegisterPageContent() {
       const sessionId = `shebn_${Date.now()}`;
       const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
       
-      // Crear sesión usando el endpoint POST correcto según la documentación
-      const response = await fetch('https://verification.didit.me/v2/session/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          workflow_id: 'shebn',
-          callback_url: 'https://shebn.vercel.app/auth/register/callback',
-          user_data: formData.email
-        })
-      });
+             // Crear sesión usando el endpoint POST correcto según la documentación
+       const response = await fetch('https://verification.didit.me/v2/session/', {
+         method: 'POST',
+         headers: {
+           'accept': 'application/json',
+           'content-type': 'application/json',
+           'x-api-key': apiKey
+         },
+         body: JSON.stringify({
+           workflow_id: 'shebn'
+         })
+       });
 
       if (response.ok) {
         const data = await response.json();
