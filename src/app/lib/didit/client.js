@@ -1,4 +1,4 @@
-import { diditConfig, getBaseUrl } from '../../../env';
+import { diditConfig, getBaseUrl } from '../../../../lib/env';
 
 export class DiditClient {
   constructor() {

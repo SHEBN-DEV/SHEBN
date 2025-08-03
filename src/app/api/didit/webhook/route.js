@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { didit } from '@/lib/dtdit/client';
+import { didit } from '../../../lib/didit/client';
 
 export async function POST(request) {
   const signature = request.headers.get('x-didit-signature');

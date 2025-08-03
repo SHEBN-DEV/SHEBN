@@ -1,4 +1,4 @@
-import { didit } from '@/lib/dtdit/client';
+import { didit } from '../../../../lib/didit/client';
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
