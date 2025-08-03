@@ -12,7 +12,7 @@ function DiditCallbackContent() {
       try {
         // 1. Obtener parámetros esenciales
         const sessionId = params.get('session_id');
-        const status = params.get('status') || 'approved'; // Default para plan gratuito
+        let status = params.get('status') || 'approved'; // Default para plan gratuito
         const userEmail = params.get('user_data');
         const userId = params.get('user_id');
 
@@ -29,15 +29,17 @@ function DiditCallbackContent() {
 
         const decodedEmail = decodeURIComponent(userEmail);
 
-        // 2. Validar con API de Didit (opcional pero recomendado)
+        // 2. Validar con API de Didit usando el endpoint correcto
         try {
           const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
           const verificationResponse = await fetch(
-            `https://api.didit.me/v1/sessions/${sessionId}`,
+            `https://verification.didit.me/v2/sessions/${sessionId}/decision/`,
             {
+              method: 'POST',
               headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
+                'accept': 'application/json',
+                'content-type': 'application/json',
+                'x-api-key': apiKey
               }
             }
           );
@@ -45,6 +47,11 @@ function DiditCallbackContent() {
           if (verificationResponse.ok) {
             const verificationData = await verificationResponse.json();
             console.log('✅ Verificación validada con Didit API:', verificationData);
+            
+            // Actualizar el status con el resultado real de Didit
+            if (verificationData.status) {
+              status = verificationData.status;
+            }
           } else {
             console.warn('⚠️ No se pudo validar con Didit API, continuando con datos locales');
           }
