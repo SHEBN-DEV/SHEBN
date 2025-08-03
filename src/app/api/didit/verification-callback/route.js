@@ -150,9 +150,35 @@ export async function POST(request) {
                } else {
                  console.log('✅ Perfil actualizado por email:', emailUpdateData);
                }
-             } else {
-               console.log('⚠️ No se encontró perfil por email tampoco');
-             }
+                           } else {
+                console.log('⚠️ No se encontró perfil por email');
+                console.log('ℹ️ El perfil se creará cuando el usuario complete el registro');
+                
+                // Guardar datos de verificación para uso posterior
+                try {
+                  const { error: tempError } = await supabase
+                    .from('user_verifications')
+                    .insert({
+                      verification_provider: 'didit',
+                      status: status,
+                      verification_data: {
+                        ...webhookData,
+                        email: webhookData.user_data,
+                        session_id: session_id,
+                        webhook_received_at: new Date().toISOString()
+                      },
+                      provider_verification_id: session_id
+                    });
+                  
+                  if (tempError) {
+                    console.warn('⚠️ Error guardando verificación temporal:', tempError);
+                  } else {
+                    console.log('✅ Verificación temporal guardada en user_verifications');
+                  }
+                } catch (tempError) {
+                  console.warn('⚠️ Error guardando verificación temporal:', tempError);
+                }
+              }
            }
          }
     

@@ -107,15 +107,51 @@ function RegisterPageContent() {
     try {
       console.log('🚀 Iniciando proceso de registro completo...');
       
-      // Obtener datos de verificación
-      const verificationData = localStorage.getItem('didit_verification');
-      const verification = verificationData ? JSON.parse(verificationData) : null;
+      // 1. Buscar verificación existente en user_verifications
+      let verification = null;
+      
+      if (sessionId) {
+        console.log('🔍 Buscando verificación por session_id:', sessionId);
+        
+        const { data: verificationData, error: verificationError } = await supabase
+          .from('user_verifications')
+          .select('*')
+          .eq('provider_verification_id', sessionId)
+          .eq('verification_provider', 'didit')
+          .single();
+        
+        if (verificationData) {
+          console.log('✅ Verificación encontrada en user_verifications:', verificationData);
+          verification = {
+            sessionId: sessionId,
+            status: verificationData.status,
+            verifiedAt: verificationData.created_at,
+            email: formData.email
+          };
+        } else if (verificationError && verificationError.code !== 'PGRST116') {
+          console.warn('⚠️ Error buscando verificación:', verificationError);
+        }
+      }
+
+      // 2. Si no se encontró, buscar en localStorage como fallback
+      if (!verification) {
+        const verificationData = localStorage.getItem('didit_verification');
+        
+        if (verificationData) {
+          try {
+            verification = JSON.parse(verificationData);
+            console.log('✅ Datos de verificación encontrados en localStorage:', verification);
+          } catch (e) {
+            console.warn('⚠️ Error parseando datos de verificación:', e);
+          }
+        }
+      }
 
       console.log('🔧 Datos para registro:', { 
         formData, 
         sessionId, 
         verification,
-        hasVerificationData: !!verificationData
+        hasVerificationData: !!verification
       });
 
       // Validar datos requeridos
