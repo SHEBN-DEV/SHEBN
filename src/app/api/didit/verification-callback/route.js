@@ -3,10 +3,24 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
 // Usar service role key para permisos de escritura
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // Clave privilegiada para escritura
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+console.log('🔧 Configuración Supabase:', {
+  hasUrl: !!supabaseUrl,
+  hasKey: !!supabaseKey,
+  url: supabaseUrl ? 'Presente' : 'Faltante',
+  key: supabaseKey ? 'Presente' : 'Faltante'
+});
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Variables de entorno faltantes:', {
+    NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
+    SUPABASE_SERVICE_ROLE_KEY: !!supabaseKey
+  });
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Función de verificación HMAC
 function verifySignature(payload, signature) {
