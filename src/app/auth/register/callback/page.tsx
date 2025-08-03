@@ -13,7 +13,7 @@ function DiditCallbackContent() {
         // 1. Obtener parámetros esenciales (múltiples formatos posibles)
         const sessionId = params.get('session_id') || params.get('sessionId') || params.get('id');
         let status = params.get('status') || 'approved'; // Default para plan gratuito
-        const userEmail = params.get('user_data') || params.get('email') || params.get('userEmail');
+        let userEmail = params.get('user_data') || params.get('email') || params.get('userEmail');
         const userId = params.get('user_id') || params.get('userId');
 
         console.log('🔍 Parámetros recibidos de Didit:', {
