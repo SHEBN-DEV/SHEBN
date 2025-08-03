@@ -10,30 +10,31 @@ export async function POST(request) {
     console.log('🔧 Creando sesión Didit desde backend...');
     console.log('📋 Configuración:', { apiKey: apiKey ? 'Presente' : 'Faltante', workflowId });
     
-    const requestBody = {
-      workflow_id: workflowId
-    };
+    // Generar un sessionId único
+    const sessionId = `shebn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     console.log('📤 Enviando petición a Didit:', {
-      url: 'https://verification.didit.me/v2/session/',
+      url: `https://verification.didit.me/v2/session/${sessionId}/decision/`,
       method: 'POST',
       headers: {
         'accept': 'application/json',
         'content-type': 'application/json',
         'x-api-key': apiKey ? 'Presente' : 'Faltante'
       },
-      body: requestBody
+      sessionId: sessionId
     });
     
-    // Crear sesión usando el endpoint POST correcto según la documentación
-    const response = await fetch('https://verification.didit.me/v2/session/', {
+    // Crear sesión usando el endpoint correcto según la documentación
+    const response = await fetch(`https://verification.didit.me/v2/session/${sessionId}/decision/`, {
       method: 'POST',
       headers: {
         'accept': 'application/json',
         'content-type': 'application/json',
         'x-api-key': apiKey
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify({
+        workflow_id: workflowId
+      })
     });
 
     console.log('📥 Respuesta de Didit:', {
@@ -46,10 +47,13 @@ export async function POST(request) {
       const data = await response.json();
       console.log('✅ Sesión creada con Didit API:', data);
       
+      // Construir la URL de verificación basada en el sessionId
+      const verificationUrl = `https://verification.didit.me/verify?session_id=${sessionId}&api_key=${apiKey}&workflow_id=${workflowId}&callback_url=${encodeURIComponent('https://shebn.vercel.app/auth/register/callback')}&user_data=${encodeURIComponent(email)}`;
+      
       return NextResponse.json({
         success: true,
-        verification_url: data.verification_url,
-        session_id: data.session_id,
+        verification_url: verificationUrl,
+        session_id: sessionId,
         data: data
       });
     } else {
@@ -60,7 +64,7 @@ export async function POST(request) {
         success: false,
         error: `Error al crear sesión: ${response.status}`,
         details: errorData,
-        requestBody: requestBody
+        sessionId: sessionId
       }, { status: response.status });
     }
 
