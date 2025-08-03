@@ -65,7 +65,7 @@ function RegisterPageContent() {
     setLoading(false);
   };
 
-  const handleDiditVerification = async () => {
+    const handleDiditVerification = async () => {
     setLoading(true);
     setError('');
 
@@ -73,21 +73,18 @@ function RegisterPageContent() {
       // Guardar temporalmente el email en localStorage para recuperarlo en el callback
       localStorage.setItem('pending_verification', formData.email);
       
-      const sessionId = `shebn_${Date.now()}`;
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
+      console.log('🔧 Iniciando verificación Didit...');
       
-             // Crear sesión usando el endpoint POST correcto según la documentación
-       const response = await fetch('https://verification.didit.me/v2/session/', {
-         method: 'POST',
-         headers: {
-           'accept': 'application/json',
-           'content-type': 'application/json',
-           'x-api-key': apiKey
-         },
-         body: JSON.stringify({
-           workflow_id: 'shebn'
-         })
-       });
+      // Crear sesión usando nuestro endpoint backend (evita CORS)
+      const response = await fetch('/api/didit/create-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: formData.email
+        })
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -103,7 +100,7 @@ function RegisterPageContent() {
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Error creando sesión Didit:', response.status, errorData);
-        throw new Error(`Error al crear sesión: ${response.status}`);
+        throw new Error(errorData.error || `Error al crear sesión: ${response.status}`);
       }
       
     } catch (error) {
