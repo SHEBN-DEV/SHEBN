@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
 
+// GET method para probar que el endpoint existe
+export async function GET() {
+  return NextResponse.json({ 
+    message: 'Didit create-session endpoint is working',
+    timestamp: new Date().toISOString(),
+    status: 'active'
+  });
+}
+
 export async function POST(request) {
   try {
     const { email } = await request.json();
@@ -7,7 +16,7 @@ export async function POST(request) {
     const apiKey = process.env.API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
     const workflowId = process.env.VERIFICATION_WORKFLOW_ID || 'cf449f7e-1848-4e21-a9b4-084000bfdc26';
     
-    console.log('🔧 Creando sesión Didit desde backend...');
+    console.log('🔧 Creando sesión Didit desde backend... (v2)');
     console.log('📋 Configuración:', { apiKey: apiKey ? 'Presente' : 'Faltante', workflowId });
     
     // Generar un sessionId único
