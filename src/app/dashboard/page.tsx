@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function Dashboard() {
+function DashboardContent() {
   const params = useSearchParams();
   const [verificationStatus, setVerificationStatus] = useState<string>('');
 
@@ -63,5 +63,17 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p>Cargando dashboard...</p>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 } 

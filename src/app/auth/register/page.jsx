@@ -70,8 +70,21 @@ function RegisterPageContent() {
     setError('');
 
     try {
-      // Generar URL de verificación Didit con el email del usuario
-      const diditUrl = await generateDiditAuthUrl(formData.email);
+      // Guardar temporalmente el email en localStorage para recuperarlo en el callback
+      localStorage.setItem('pending_verification', formData.email);
+      
+      // Generar URL de verificación Didit con parámetros según el repo oficial
+      const params = new URLSearchParams({
+        api_key: process.env.NEXT_PUBLIC_API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
+        workflow_id: 'shebn',
+        user_data: encodeURIComponent(formData.email),
+        callback_url: encodeURIComponent('https://shebn.vercel.app/auth/register/callback'),
+        session_id: `shebn_${Date.now()}`
+      });
+
+      const diditUrl = `https://verification.didit.me?${params.toString()}`;
+      
+      console.log('🔗 Redirigiendo a Didit:', diditUrl);
       
       // Redirigir a Didit para verificación
       window.location.href = diditUrl;
