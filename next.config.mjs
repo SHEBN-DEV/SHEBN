@@ -1,21 +1,42 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
-  },
-  env: {
-    NODE_ENV: process.env.NODE_ENV || 'production',
-  },
-  // Configuración para Vercel
-  output: 'standalone',
+  // Configuración de seguridad para Web3
   poweredByHeader: false,
+  compress: true,
+  
+  // Headers de seguridad
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+    ];
+  },
+  
+  // Configuración de imágenes seguras
+  images: {
+    domains: ['verification.didit.me'],
+    formats: ['image/webp', 'image/avif'],
+  },
+  
+  // Configuración de experimental para Web3
+  experimental: {
+    serverComponentsExternalPackages: ['@supabase/supabase-js'],
+  },
 };
 
 export default nextConfig;

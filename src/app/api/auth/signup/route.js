@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '../../../SupabaseClient';
+import { supabase, validateSupabaseConnection } from '../../../SupabaseClient';
 import { didit } from '../../lib/didit/client';
 import { validateEnvVars } from '../../../lib/env';
 
 export async function POST(request) {
   try {
-    // Validar variables de entorno básicas (sin Didit para plan gratuito)
+    // Validación de seguridad crítica
+    if (!validateSupabaseConnection()) {
+      return NextResponse.json(
+        { error: 'Configuración de seguridad incompleta' },
+        { status: 500 }
+      );
+    }
+
     const { email, password, fullName, userName, gender } = await request.json();
 
     // Validar que el género sea femenino
