@@ -34,6 +34,8 @@ function RegisterPageContent() {
     const sessionId = searchParams.get('session_id');
     
     console.log('🔍 Detectando parámetros de verificación:', { verified, sessionId });
+    console.log('🔍 URL completa:', window.location.href);
+    console.log('🔍 Todos los parámetros:', Object.fromEntries(searchParams.entries()));
     
     if (verified === 'true' && sessionId) {
       console.log('✅ Verificación detectada, procesando...');
@@ -42,7 +44,14 @@ function RegisterPageContent() {
       
       // Si tenemos datos del formulario guardados, completar el registro automáticamente
       const savedFormData = localStorage.getItem('registration_form_data');
-      console.log('📋 Datos del formulario guardados:', { hasData: !!savedFormData });
+      const verificationData = localStorage.getItem('didit_verification');
+      
+      console.log('📋 Datos del formulario guardados:', { 
+        hasFormData: !!savedFormData,
+        hasVerificationData: !!verificationData,
+        formData: savedFormData ? JSON.parse(savedFormData) : null,
+        verificationData: verificationData ? JSON.parse(verificationData) : null
+      });
       
       if (savedFormData) {
         const parsedFormData = JSON.parse(savedFormData);
@@ -115,6 +124,18 @@ function RegisterPageContent() {
       }
 
       console.log('📤 Creando usuario en Supabase Auth...');
+      console.log('📤 Datos que se enviarán a Supabase:', {
+        email: formData.email,
+        password: formData.password ? '***' : 'FALTANTE',
+        metadata: {
+          full_name: formData.fullName,
+          user_name: formData.userName,
+          gender: formData.gender,
+          didit_verified: verification ? true : false,
+          didit_session_id: sessionId,
+          verification_status: verification?.status || 'approved'
+        }
+      });
 
       // Crear usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
