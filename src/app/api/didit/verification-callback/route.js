@@ -1,243 +1,168 @@
 import { NextResponse } from 'next/server';
+import { didit } from '../../../lib/didit/client';
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
+import { DIDIT_CONFIG } from '../../../lib/didit/constants';
 
-// Usar service role key para permisos de escritura
+// Use service role key for secure database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-console.log('🔧 Configuración Supabase:', {
-  hasUrl: !!supabaseUrl,
-  hasKey: !!supabaseKey,
-  url: supabaseUrl ? 'Presente' : 'Faltante',
-  key: supabaseKey ? 'Presente' : 'Faltante'
-});
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Variables de entorno faltantes:', {
-    NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
-    SUPABASE_SERVICE_ROLE_KEY: !!supabaseKey
-  });
-}
-
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Función de verificación HMAC
-function verifySignature(payload, signature) {
-  if (!signature || !process.env.DIDIT_WEBHOOK_SECRET) return false;
-  const hmac = crypto.createHmac('sha256', process.env.DIDIT_WEBHOOK_SECRET);
-  const expectedSignature = hmac.update(payload).digest('hex');
-  return signature === expectedSignature;
-}
-
-// GET method para probar que el endpoint existe
-export async function GET() {
-  return NextResponse.json({ 
-    message: 'Didit verification-callback endpoint is working',
-    timestamp: new Date().toISOString(),
-    status: 'active'
-  });
-}
 
 export async function POST(request) {
   try {
-    console.log('🔔 Webhook recibido de Didit');
-
-    // Obtener headers para verificación HMAC
     const signature = request.headers.get('x-didit-signature');
-    const payload = await request.text();
-    
-    console.log('🔐 Verificando firma HMAC...');
-    console.log('📝 Payload recibido:', payload);
-    console.log('🔑 Firma recibida:', signature);
+    const payload = await request.json();
 
-    // Verificar firma HMAC si está disponible
-    if (signature && process.env.DIDIT_WEBHOOK_SECRET) {
-      const isValid = verifySignature(payload, signature);
-      if (!isValid) {
-        console.error('❌ Firma HMAC inválida');
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-      }
-      console.log('✅ Firma HMAC válida');
-    } else {
-      console.warn('⚠️ No se pudo verificar firma HMAC (continuando...)');
+    console.log('📥 Verification callback received:', {
+      has_signature: !!signature,
+      event_type: payload.event,
+      session_id: payload.session_id,
+      timestamp: new Date().toISOString()
+    });
+
+    // Verify webhook signature for security
+    if (!didit.verifyWebhook(signature, payload)) {
+      console.error('❌ Invalid webhook signature');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    // Parsear el payload
-    const webhookData = JSON.parse(payload);
+    // Process the verification data
+    const processedData = didit.processWebhook(payload);
     
-    console.log('📥 Datos del webhook:', webhookData);
-    
-    // Extraer información esencial
-    const { session_id, status, created_at } = webhookData;
-    
-    if (!session_id) {
-      console.error('❌ Webhook sin session_id');
-      return NextResponse.json({ error: 'session_id requerido' }, { status: 400 });
-    }
-    
-    console.log('🔍 Procesando webhook para sesión:', session_id);
-    
-             // Buscar usuario por session_id en la tabla profiles
-         const { data: profileData, error: profileError } = await supabase
-           .from('profiles')
-           .select('*')
-           .eq('didit_session_id', session_id)
-           .single();
+    console.log('✅ Verification data processed:', {
+      session_id: processedData.session_id,
+      status: processedData.status,
+      verified: processedData.verified,
+      has_user_data: !!processedData.user_data
+    });
 
-         if (profileError && profileError.code !== 'PGRST116') {
-           console.error('❌ Error buscando perfil:', profileError);
-         }
+    // Extract gender from verification data
+    const gender = didit.extractGender(processedData);
+    console.log('👤 Gender extracted:', gender);
 
-         if (profileData) {
-           console.log('✅ Perfil encontrado:', profileData.email);
-
-           // Actualizar el perfil con el status del webhook usando service role
-           const { data: updateData, error: updateError } = await supabase
-             .from('profiles')
-             .update({
-               verification_status: status,
-               didit_verified: status === 'approved' || status === 'success',
-               verification_data: {
-                 ...webhookData,
-                 webhook_received_at: new Date().toISOString()
-               },
-               updated_at: new Date().toISOString()
-             })
-             .eq('didit_session_id', session_id)
-             .select();
-
-           if (updateError) {
-             console.error('❌ Error actualizando perfil:', updateError);
-             return NextResponse.json({ error: 'Error actualizando perfil' }, { status: 500 });
-           }
-
-           console.log('✅ Perfil actualizado:', updateData);
-         } else {
-           console.log('⚠️ No se encontró perfil para session_id:', session_id);
-           
-           // Intentar buscar por email si tenemos user_data
-           if (webhookData.user_data) {
-             console.log('🔍 Buscando por email:', webhookData.user_data);
-             
-             const { data: emailProfile, error: emailError } = await supabase
-               .from('profiles')
-               .select('*')
-               .eq('email', webhookData.user_data)
-               .single();
-             
-             if (emailProfile) {
-               console.log('✅ Perfil encontrado por email:', emailProfile.email);
-               
-               // Actualizar perfil encontrado por email
-               const { data: emailUpdateData, error: emailUpdateError } = await supabase
-                 .from('profiles')
-                 .update({
-                   verification_status: status,
-                   didit_verified: status === 'approved' || status === 'success',
-                   didit_session_id: session_id,
-                   verification_data: {
-                     ...webhookData,
-                     webhook_received_at: new Date().toISOString()
-                   },
-                   updated_at: new Date().toISOString()
-                 })
-                 .eq('email', webhookData.user_data)
-                 .select();
-               
-               if (emailUpdateError) {
-                 console.error('❌ Error actualizando perfil por email:', emailUpdateError);
-               } else {
-                 console.log('✅ Perfil actualizado por email:', emailUpdateData);
-               }
-                           } else {
-                console.log('⚠️ No se encontró perfil por email');
-                console.log('ℹ️ El perfil se creará cuando el usuario complete el registro');
-                
-                // Guardar datos de verificación para uso posterior
-                try {
-                  console.log('💾 Intentando guardar en user_verifications...');
-                  console.log('📝 Datos a insertar:', {
-                    verification_provider: 'didit',
-                    status: status,
-                    provider_verification_id: session_id,
-                    verification_data: {
-                      ...webhookData,
-                      email: webhookData.user_data,
-                      session_id: session_id,
-                      webhook_received_at: new Date().toISOString()
-                    }
-                  });
-                  
-                  const { data: insertData, error: tempError } = await supabase
-                    .from('user_verifications')
-                    .insert({
-                      verification_provider: 'didit',
-                      status: status,
-                      provider_verification_id: session_id,
-                      verification_data: {
-                        ...webhookData,
-                        email: webhookData.user_data,
-                        session_id: session_id,
-                        webhook_received_at: new Date().toISOString()
-                      }
-                    })
-                    .select();
-                  
-                  if (tempError) {
-                    console.error('❌ Error guardando verificación temporal:', tempError);
-                    console.error('❌ Detalles del error:', {
-                      code: tempError.code,
-                      message: tempError.message,
-                      details: tempError.details,
-                      hint: tempError.hint
-                    });
-                  } else {
-                    console.log('✅ Verificación temporal guardada en user_verifications:', insertData);
-                  }
-                } catch (tempError) {
-                  console.error('❌ Error guardando verificación temporal:', tempError);
-                }
-              }
-           }
-         }
-    
-    // Guardar log del webhook
+    // Store verification data in database
     try {
-      const { error: logError } = await supabase
+      const { data: verificationRecord, error: dbError } = await supabase
+        .from('user_verifications')
+        .insert({
+          verification_provider: 'didit',
+          status: processedData.status,
+          session_id: processedData.session_id,
+          verification_data: {
+            ...processedData,
+            gender: gender,
+            extracted_at: new Date().toISOString()
+          }
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        console.error('❌ Error storing verification data:', dbError);
+        return NextResponse.json({ 
+          error: 'Database error',
+          details: dbError.message 
+        }, { status: 500 });
+      }
+
+      console.log('✅ Verification data stored in database:', verificationRecord);
+
+      // Log webhook for debugging
+      await supabase
         .from('webhook_logs')
         .insert({
-          session_id: session_id,
-          webhook_data: webhookData,
-          status: status,
-          received_at: new Date().toISOString()
+          session_id: processedData.session_id,
+          webhook_data: payload,
+          status: processedData.status
         });
-      
-      if (logError) {
-        console.warn('⚠️ Error guardando log del webhook:', logError);
-      } else {
-        console.log('✅ Log del webhook guardado');
-      }
-    } catch (logError) {
-      console.warn('⚠️ Error guardando log del webhook:', logError);
+
+    } catch (dbError) {
+      console.error('❌ Database operation failed:', dbError);
+      return NextResponse.json({ 
+        error: 'Database operation failed',
+        details: dbError.message 
+      }, { status: 500 });
     }
-    
-    console.log('✅ Webhook procesado exitosamente');
-    
+
     return NextResponse.json({ 
-      success: true, 
-      message: 'Webhook procesado',
-      session_id: session_id,
-      status: status
+      success: true,
+      session_id: processedData.session_id,
+      status: processedData.status,
+      gender: gender,
+      verified: processedData.verified
     });
-    
+
   } catch (error) {
-    console.error('❌ Error procesando webhook:', error);
+    console.error('❌ Error processing verification callback:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error.message 
+    }, { status: 500 });
+  }
+}
+
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('session_id');
+    const email = searchParams.get('email');
+
+    if (!sessionId) {
+      return NextResponse.json({ 
+        error: 'Session ID is required' 
+      }, { status: 400 });
+    }
+
+    console.log('🔍 Checking verification status for session:', sessionId);
+
+    // Get verification status from database
+    const { data: verificationData, error: dbError } = await supabase
+      .from('user_verifications')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('verification_provider', 'didit')
+      .single();
+
+    if (dbError && dbError.code !== 'PGRST116') {
+      console.error('❌ Database error:', dbError);
+      return NextResponse.json({ 
+        error: 'Database error',
+        details: dbError.message 
+      }, { status: 500 });
+    }
+
+    if (!verificationData) {
+      console.log('⚠️ No verification data found for session:', sessionId);
+      return NextResponse.json({ 
+        verified: false,
+        status: 'not_found',
+        session_id: sessionId
+      });
+    }
+
+    // Extract gender from stored verification data
+    const gender = didit.extractGender(verificationData.verification_data);
     
+    console.log('✅ Verification status retrieved:', {
+      session_id: sessionId,
+      status: verificationData.status,
+      gender: gender,
+      verified: verificationData.status === 'approved'
+    });
+
     return NextResponse.json({
-      success: false,
-      error: 'Error interno del servidor',
-      details: error.message
+      verified: verificationData.status === 'approved',
+      session_id: sessionId,
+      status: verificationData.status,
+      gender: gender,
+      verification_data: verificationData.verification_data
+    });
+
+  } catch (error) {
+    console.error('❌ Error checking verification status:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error.message 
     }, { status: 500 });
   }
 } 

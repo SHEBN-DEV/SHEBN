@@ -10,98 +10,88 @@ function DiditCallbackContent() {
   useEffect(() => {
     const processCallback = async () => {
       try {
-        // 1. Obtener parámetros esenciales (múltiples formatos posibles)
+        // 1. Get essential parameters (multiple possible formats)
         const sessionId = params.get('session_id') || params.get('sessionId') || params.get('id');
-        let status = params.get('status') || 'approved'; // Default para plan gratuito
+        let status = params.get('status') || 'approved'; // Default for free plan
         let userEmail = params.get('user_data') || params.get('email') || params.get('userEmail');
         const userId = params.get('user_id') || params.get('userId');
 
-        console.log('🔍 Parámetros recibidos de Didit:', {
+        console.log('🔍 Parameters received from Didit:', {
           sessionId,
           status,
           userEmail: userEmail ? decodeURIComponent(userEmail) : null,
           userId
         });
 
-        console.log('🔍 Todos los parámetros disponibles:', Object.fromEntries(params.entries()));
+        console.log('🔍 All available parameters:', Object.fromEntries(params.entries()));
 
-        // Si no tenemos sessionId, intentar obtenerlo del localStorage
+        // If we don't have sessionId, try to get it from localStorage
         if (!sessionId) {
           const pendingVerification = localStorage.getItem('pending_verification');
           if (pendingVerification) {
-            console.log('🔍 Usando sessionId del localStorage:', pendingVerification);
+            console.log('🔍 Using sessionId from localStorage:', pendingVerification);
           }
         }
 
-        // Si no tenemos userEmail, intentar obtenerlo del localStorage
+        // If we don't have userEmail, try to get it from localStorage
         if (!userEmail) {
           const savedFormData = localStorage.getItem('registration_form_data');
           if (savedFormData) {
             const formData = JSON.parse(savedFormData);
-            console.log('🔍 Usando email del formulario guardado:', formData.email);
+            console.log('🔍 Using email from saved form:', formData.email);
             userEmail = formData.email;
           }
         }
 
         if (!sessionId) {
-          console.error('❌ No se pudo obtener sessionId');
-          throw new Error('Falta session_id de verificación');
+          console.error('❌ Could not get sessionId');
+          throw new Error('Missing session_id from verification');
         }
 
         if (!userEmail) {
-          console.error('❌ No se pudo obtener userEmail');
-          throw new Error('Falta email de verificación');
+          console.error('❌ Could not get userEmail');
+          throw new Error('Missing email from verification');
         }
 
         const decodedEmail = decodeURIComponent(userEmail);
 
-        // 2. Validar con API de Didit usando el endpoint correcto
+        // 2. Validate with Didit API using the correct endpoint
         try {
-          const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
-          const verificationResponse = await fetch(
-            `https://verification.didit.me/v2/sessions/${sessionId}/decision/`,
-            {
-              method: 'POST',
-              headers: {
-                'accept': 'application/json',
-                'content-type': 'application/json',
-                'x-api-key': apiKey
-              }
-            }
-          );
-
+          const verificationResponse = await fetch(`/api/didit/check-verification?session_id=${sessionId}&email=${encodeURIComponent(decodedEmail)}`);
+          
           if (verificationResponse.ok) {
             const verificationData = await verificationResponse.json();
-            console.log('✅ Verificación validada con Didit API:', verificationData);
+            console.log('✅ Verification validated with Didit API:', verificationData);
             
-            // Actualizar el status con el resultado real de Didit
+            // Update status with real result from Didit
             if (verificationData.status) {
               status = verificationData.status;
             }
           } else {
-            console.warn('⚠️ No se pudo validar con Didit API, continuando con datos locales');
+            console.warn('⚠️ Could not validate with Didit API, continuing with local data');
           }
         } catch (apiError) {
-          console.warn('⚠️ Error al validar con Didit API:', apiError);
+          console.warn('⚠️ Error validating with Didit API:', apiError);
         }
 
-        // 3. Guardar datos de verificación en localStorage para completar registro
+        // 3. Store verification data in localStorage to complete registration
         const verificationData = {
           sessionId,
           status,
           verifiedAt: new Date().toISOString(),
-          email: decodedEmail
+          email: decodedEmail,
+          userId: userId
         };
         
         localStorage.setItem('didit_verification', JSON.stringify(verificationData));
         
-        console.log('✅ Datos de verificación guardados:', verificationData);
+        console.log('✅ Verification data stored:', verificationData);
 
-        // 4. Redirigir al registro para completar el proceso
+        // 4. Redirect to registration to complete the process
         router.push('/auth/register?verified=true&session_id=' + sessionId);
 
       } catch (error) {
-        console.error('❌ Error en callback:', error);
+        console.error('❌ Error in callback:', error);
         router.push('/auth/error?code=verification_failed');
       }
     };
@@ -113,7 +103,7 @@ function DiditCallbackContent() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Procesando verificación con Didit...</p>
+        <p className="text-gray-600">Processing verification with Didit...</p>
       </div>
     </div>
   );
@@ -125,7 +115,7 @@ export default function DiditCallback() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando...</p>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     }>

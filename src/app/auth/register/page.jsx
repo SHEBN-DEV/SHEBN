@@ -7,7 +7,6 @@ import { supabase } from '../../SupabaseClient';
 import InputField from '../../../components/inputField';
 import PasswordField from '../../../components/PasswordField';
 import GenderSelect from '../../../components/GenderSelect';
-import { generateDiditAuthUrl } from '../../../lib/auth/didit';
 
 function RegisterPageContent() {
   const router = useRouter();
@@ -28,25 +27,25 @@ function RegisterPageContent() {
   const gender = watch('gender');
   const searchParams = useSearchParams();
 
-  // Detectar si el usuario viene de una verificación exitosa
+  // Detect if user comes from successful verification
   useEffect(() => {
     const verified = searchParams.get('verified');
     const sessionId = searchParams.get('session_id');
     
-    console.log('🔍 Detectando parámetros de verificación:', { verified, sessionId });
-    console.log('🔍 URL completa:', window.location.href);
-    console.log('🔍 Todos los parámetros:', Object.fromEntries(searchParams.entries()));
+    console.log('🔍 Detecting verification parameters:', { verified, sessionId });
+    console.log('🔍 Complete URL:', window.location.href);
+    console.log('🔍 All parameters:', Object.fromEntries(searchParams.entries()));
     
     if (verified === 'true' && sessionId) {
-      console.log('✅ Verificación detectada, procesando...');
+      console.log('✅ Verification detected, processing...');
       setVerifiedSessionId(sessionId);
-      setSuccess('Verificación Didit completada exitosamente');
+      setSuccess('Didit verification completed successfully');
       
-      // Si tenemos datos del formulario guardados, completar el registro automáticamente
+      // If we have saved form data, complete registration automatically
       const savedFormData = localStorage.getItem('registration_form_data');
       const verificationData = localStorage.getItem('didit_verification');
       
-      console.log('📋 Datos del formulario guardados:', { 
+      console.log('📋 Saved form data:', { 
         hasFormData: !!savedFormData,
         hasVerificationData: !!verificationData,
         formData: savedFormData ? JSON.parse(savedFormData) : null,
@@ -57,15 +56,15 @@ function RegisterPageContent() {
         const parsedFormData = JSON.parse(savedFormData);
         setFormData(parsedFormData);
         
-        console.log('🔄 Iniciando registro automático en 2 segundos...');
+        console.log('🔄 Starting automatic registration in 2 seconds...');
         
-        // Completar el registro automáticamente
+        // Complete registration automatically
         setTimeout(() => {
           handleCompleteRegistration(parsedFormData, sessionId);
         }, 2000);
       } else {
-        console.error('❌ No se encontraron datos del formulario guardados');
-        setError('Error: No se encontraron datos del formulario');
+        console.error('❌ No saved form data found');
+        setError('Error: No form data found');
       }
     }
   }, [searchParams]);
@@ -76,24 +75,24 @@ function RegisterPageContent() {
     setSuccess('');
 
     try {
-      // Validar que el género sea femenino
+      // Validate that gender is female
       if (data.gender !== 'female') {
-        setError('Solo se permiten registros de género femenino');
+        setError('Only female registrations are allowed');
         setLoading(false);
         return;
       }
 
-      // Guardar datos del formulario en localStorage
+      // Save form data in localStorage
       localStorage.setItem('registration_form_data', JSON.stringify(data));
 
-      // Guardar datos del formulario y pasar al paso 2
+      // Save form data and proceed to step 2
       setFormData(data);
       setStep(2);
-      setSuccess('Formulario completado. Procediendo a verificación...');
+      setSuccess('Form completed. Proceeding to verification...');
 
     } catch (error) {
-      console.error('Error en validación:', error);
-      setError('Error interno del servidor');
+      console.error('Error in validation:', error);
+      setError('Internal server error');
     }
 
     setLoading(false);
@@ -105,23 +104,23 @@ function RegisterPageContent() {
     setSuccess('');
 
     try {
-      console.log('🚀 Iniciando proceso de registro completo...');
+      console.log('🚀 Starting complete registration process...');
       
-      // 1. Buscar verificación existente en user_verifications
+      // 1. Look for existing verification in user_verifications
       let verification = null;
       
       if (sessionId) {
-        console.log('🔍 Buscando verificación por session_id:', sessionId);
+        console.log('🔍 Looking for verification by session_id:', sessionId);
         
         const { data: verificationData, error: verificationError } = await supabase
           .from('user_verifications')
           .select('*')
-          .eq('provider_verification_id', sessionId)
+          .eq('session_id', sessionId)
           .eq('verification_provider', 'didit')
           .single();
         
         if (verificationData) {
-          console.log('✅ Verificación encontrada en user_verifications:', verificationData);
+          console.log('✅ Verification found in user_verifications:', verificationData);
           verification = {
             sessionId: sessionId,
             status: verificationData.status,
@@ -129,40 +128,40 @@ function RegisterPageContent() {
             email: formData.email
           };
         } else if (verificationError && verificationError.code !== 'PGRST116') {
-          console.warn('⚠️ Error buscando verificación:', verificationError);
+          console.warn('⚠️ Error looking for verification:', verificationError);
         }
       }
 
-      // 2. Si no se encontró, buscar en localStorage como fallback
+      // 2. If not found, look in localStorage as fallback
       if (!verification) {
         const verificationData = localStorage.getItem('didit_verification');
         
         if (verificationData) {
           try {
             verification = JSON.parse(verificationData);
-            console.log('✅ Datos de verificación encontrados en localStorage:', verification);
+            console.log('✅ Verification data found in localStorage:', verification);
           } catch (e) {
-            console.warn('⚠️ Error parseando datos de verificación:', e);
+            console.warn('⚠️ Error parsing verification data:', e);
           }
         }
       }
 
-      console.log('🔧 Datos para registro:', { 
+      console.log('🔧 Data for registration:', { 
         formData, 
         sessionId, 
         verification,
         hasVerificationData: !!verification
       });
 
-      // Validar datos requeridos
+      // Validate required data
       if (!formData.email || !formData.password) {
-        throw new Error('Faltan datos requeridos para el registro');
+        throw new Error('Missing required data for registration');
       }
 
-      console.log('📤 Creando usuario en Supabase Auth...');
-      console.log('📤 Datos que se enviarán a Supabase:', {
+      console.log('📤 Creating user in Supabase Auth...');
+      console.log('📤 Data to send to Supabase:', {
         email: formData.email,
-        password: formData.password ? '***' : 'FALTANTE',
+        password: formData.password ? '***' : 'MISSING',
         metadata: {
           full_name: formData.fullName,
           user_name: formData.userName,
@@ -173,7 +172,7 @@ function RegisterPageContent() {
         }
       });
 
-      // Crear usuario en Supabase Auth
+      // Create user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -189,21 +188,21 @@ function RegisterPageContent() {
         }
       });
 
-      console.log('📥 Respuesta de Supabase:', { authData, authError });
+      console.log('📥 Supabase response:', { authData, authError });
 
       if (authError) {
-        console.error('❌ Error en registro Supabase:', authError);
+        console.error('❌ Error in Supabase registration:', authError);
         setError(authError.message);
         setLoading(false);
         return;
       }
 
       if (authData.user) {
-        console.log('✅ Usuario creado en Supabase Auth:', authData.user);
+        console.log('✅ User created in Supabase Auth:', authData.user);
         
-        // Crear perfil manualmente en caso de que el trigger no funcione
+        // Create profile manually in case trigger doesn't work
         try {
-          console.log('📝 Creando perfil manualmente...');
+          console.log('📝 Creating profile manually...');
           
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
@@ -216,7 +215,7 @@ function RegisterPageContent() {
               verification_status: verification?.status || 'approved',
               didit_verified: verification ? true : false,
               didit_session_id: sessionId,
-              verification_data: verification ? {
+              didit_verification_data: verification ? {
                 session_id: sessionId,
                 status: verification.status,
                 verified_at: verification.verifiedAt
@@ -226,18 +225,18 @@ function RegisterPageContent() {
             .single();
           
           if (profileError) {
-            console.warn('⚠️ Error creando perfil manualmente:', profileError);
-            // Continuar aunque falle, el trigger debería haberlo creado
+            console.warn('⚠️ Error creating profile manually:', profileError);
+            // Continue even if it fails, trigger should have created it
           } else {
-            console.log('✅ Perfil creado manualmente:', profileData);
+            console.log('✅ Profile created manually:', profileData);
           }
         } catch (profileError) {
-          console.warn('⚠️ Error en creación manual de perfil:', profileError);
+          console.warn('⚠️ Error in manual profile creation:', profileError);
         }
         
-        // Verificar que el perfil existe
+        // Verify that profile exists
         try {
-          console.log('🔍 Verificando que el perfil existe...');
+          console.log('🔍 Verifying profile exists...');
           
           const { data: existingProfile, error: checkError } = await supabase
             .from('profiles')
@@ -246,106 +245,112 @@ function RegisterPageContent() {
             .single();
           
           if (checkError) {
-            console.error('❌ Error verificando perfil:', checkError);
+            console.error('❌ Error verifying profile:', checkError);
           } else if (existingProfile) {
-            console.log('✅ Perfil verificado:', existingProfile);
+            console.log('✅ Profile verified:', existingProfile);
           } else {
-            console.error('❌ Perfil no encontrado después de la creación');
+            console.error('❌ Profile not found after creation');
           }
         } catch (verifyError) {
-          console.error('❌ Error en verificación de perfil:', verifyError);
+          console.error('❌ Error in profile verification:', verifyError);
         }
         
-        // Limpiar datos temporales
+        // Clean up temporary data
         localStorage.removeItem('registration_form_data');
         localStorage.removeItem('didit_verification');
         localStorage.removeItem('pending_verification');
         
-        setSuccess('¡Registro completado exitosamente! Redirigiendo al dashboard...');
+        setSuccess('Registration completed successfully! Redirecting to dashboard...');
         
-        // Redirigir al dashboard
+        // Redirect to dashboard
         setTimeout(() => {
           router.push('/dashboard?verified=true');
         }, 2000);
       } else {
-        console.error('❌ No se recibió usuario de Supabase');
-        setError('Error: No se pudo crear el usuario');
+        console.error('❌ No user received from Supabase');
+        setError('Error: Could not create user');
       }
 
     } catch (error) {
-      console.error('❌ Error completando registro:', error);
-      setError('Error al completar el registro: ' + error.message);
+      console.error('❌ Error completing registration:', error);
+      setError('Error completing registration: ' + error.message);
     }
 
     setLoading(false);
   };
 
-    const handleDiditVerification = async () => {
+  const handleDiditVerification = async () => {
     setLoading(true);
     setError('');
 
     try {
-      // Guardar temporalmente el email en localStorage para recuperarlo en el callback
+      // Save email temporarily in localStorage to recover it in callback
       localStorage.setItem('pending_verification', formData.email);
       
-      console.log('🔧 Iniciando verificación Didit...');
+      console.log('🔧 Starting Didit verification...');
       
-      // Crear sesión usando nuestro endpoint backend (evita CORS)
+      // Create session using our backend endpoint (avoids CORS)
       const response = await fetch('/api/didit/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          email: formData.email
+          email: formData.email,
+          userId: `shebn_${Date.now()}`,
+          metadata: {
+            full_name: formData.fullName,
+            user_name: formData.userName,
+            gender: formData.gender
+          }
         })
       });
 
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Sesión creada con Didit:', data);
+        console.log('✅ Session created with Didit:', data);
         
-        // Usar la URL de verificación proporcionada por Didit
+        // Use the verification URL provided by Didit
         if (data.verification_url) {
-          console.log('🔗 Redirigiendo a Didit:', data.verification_url);
+          console.log('🔗 Redirecting to Didit:', data.verification_url);
           
-          // Abrir Didit en una nueva ventana/pestaña
+          // Open Didit in a new window/tab
           const diditWindow = window.open(data.verification_url, '_blank', 'width=800,height=600');
           
-          // Mostrar mensaje al usuario
-          setSuccess('Verificación iniciada. Completa el proceso en la nueva ventana y luego regresa aquí.');
+          // Show message to user
+          setSuccess('Verification started. Complete the process in the new window and then return here.');
           
-          // Verificar periódicamente si la verificación se completó
+          // Check periodically if verification was completed
           const checkVerification = setInterval(async () => {
             try {
-              const checkResponse = await fetch(`/api/didit/check-verification?email=${encodeURIComponent(formData.email)}`);
+              const checkResponse = await fetch(`/api/didit/check-verification?email=${encodeURIComponent(formData.email)}&session_id=${data.session_id}`);
               if (checkResponse.ok) {
                 const checkData = await checkResponse.json();
                 if (checkData.verified) {
                   clearInterval(checkVerification);
-                  setSuccess('¡Verificación completada! Procediendo con el registro...');
+                  setSuccess('Verification completed! Proceeding with registration...');
                   setTimeout(() => {
-                    handleCompleteRegistration(formData, checkData.sessionId);
+                    handleCompleteRegistration(formData, data.session_id);
                   }, 2000);
                 }
               }
             } catch (error) {
-              console.warn('Error verificando estado:', error);
+              console.warn('Error checking status:', error);
             }
-          }, 5000); // Verificar cada 5 segundos
+          }, 5000); // Check every 5 seconds
           
         } else {
-          throw new Error('No se recibió URL de verificación de Didit');
+          throw new Error('No verification URL received from Didit');
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Error creando sesión Didit:', response.status, errorData);
-        throw new Error(errorData.error || `Error al crear sesión: ${response.status}`);
+        console.error('❌ Error creating Didit session:', response.status, errorData);
+        throw new Error(errorData.error || `Error creating session: ${response.status}`);
       }
       
     } catch (error) {
-      console.error('Error al iniciar verificación Didit:', error);
-      setError('Error al iniciar la verificación: ' + error.message);
+      console.error('Error starting Didit verification:', error);
+      setError('Error starting verification: ' + error.message);
       setLoading(false);
     }
   };
@@ -356,7 +361,7 @@ function RegisterPageContent() {
     setSuccess('');
 
     try {
-      // Crear usuario en Supabase Auth con verificación Didit si está disponible
+      // Create user in Supabase Auth with Didit verification if available
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -379,12 +384,12 @@ function RegisterPageContent() {
 
       if (authData.user) {
         const successMessage = verifiedSessionId 
-          ? 'Registro exitoso con verificación Didit. Redirigiendo...'
-          : 'Registro exitoso. Redirigiendo a verificación...';
+          ? 'Registration successful with Didit verification. Redirecting...'
+          : 'Registration successful. Redirecting to verification...';
         
         setSuccess(successMessage);
         
-        // Redirigir según si tiene verificación o no
+        // Redirect based on whether verification exists or not
         setTimeout(() => {
           if (verifiedSessionId) {
             router.push('/');
@@ -395,22 +400,22 @@ function RegisterPageContent() {
       }
 
     } catch (error) {
-      console.error('Error en registro:', error);
-      setError('Error interno del servidor');
+      console.error('Error in registration:', error);
+      setError('Internal server error');
     }
 
     setLoading(false);
   };
 
-  // Renderizar paso 1: Formulario de registro
+  // Render step 1: Registration form
   if (step === 1) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#1a1718] text-white">
         <div className="w-full md:w-1/2 py-12 px-6 flex flex-col gap-6 justify-center items-center">
           
           <div className="text-center">
-            <h1 className="text-4xl font-semibold">Registrarse</h1>
-            <p className="text-gray-400 mt-2">Únete a la comunidad de mujeres en Web3</p>
+            <h1 className="text-4xl font-semibold">Register</h1>
+            <p className="text-gray-400 mt-2">Join the community of women in Web3</p>
           </div>
 
           <form 
@@ -425,18 +430,18 @@ function RegisterPageContent() {
             )}
 
             <InputField 
-              label="Nombre Completo"
+              label="Full Name"
               name="fullName"
               register={register}
-              rules={{ required: "Nombre completo es requerido" }}
+              rules={{ required: "Full name is required" }}
               error={errors.fullName}
             />
 
             <InputField 
-              label="Nombre de Usuario"
+              label="Username"
               name="userName"
               register={register}
-              rules={{ required: "Nombre de usuario es requerido" }}
+              rules={{ required: "Username is required" }}
               error={errors.userName}
             />
 
@@ -446,10 +451,10 @@ function RegisterPageContent() {
               type="email"
               register={register}
               rules={{ 
-                required: "Email es requerido",
+                required: "Email is required",
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: "Email inválido"
+                  message: "Invalid email"
                 }
               }}
               error={errors.email}
@@ -461,28 +466,28 @@ function RegisterPageContent() {
             />
 
             <PasswordField 
-              label="Contraseña"
+              label="Password"
               name="password"
               register={register}
               rules={{ 
-                required: "Contraseña es requerida",
+                required: "Password is required",
                 minLength: {
                   value: 6,
-                  message: "La contraseña debe tener al menos 6 caracteres"
+                  message: "Password must be at least 6 characters"
                 }
               }}
               error={errors.password}
             />
 
             <PasswordField 
-              label="Confirmar Contraseña"
+              label="Confirm Password"
               name="confirmPassword"
               register={register}
               rules={{ 
-                required: "Confirmar contraseña es requerida",
+                required: "Confirm password is required",
                 validate: (value) => {
                   const password = watch('password');
-                  return value === password || "Las contraseñas no coinciden";
+                  return value === password || "Passwords don't match";
                 }
               }}
               error={errors.confirmPassword}
@@ -498,13 +503,13 @@ function RegisterPageContent() {
                     : 'bg-[#ff29d7] text-white hover:bg-[#de69c7]'
                 }`}
               >
-                {loading ? "Validando..." : "CONTINUAR"}
+                {loading ? "Validating..." : "CONTINUE"}
               </button>
             </div>
 
             {gender && gender !== 'female' && (
               <div className="text-center text-red-400 text-sm">
-                Esta plataforma está diseñada exclusivamente para mujeres
+                This platform is designed exclusively for women
               </div>
             )}
 
@@ -512,9 +517,9 @@ function RegisterPageContent() {
 
           <div className="text-center">
             <p className="text-gray-400">
-              ¿Ya tienes cuenta?{' '}
+              Already have an account?{' '}
               <a href="/auth/login" className="text-[#ff29d7] hover:text-[#de69c7]">
-                Iniciar sesión
+                Sign in
               </a>
             </p>
           </div>
@@ -524,14 +529,14 @@ function RegisterPageContent() {
     );
   }
 
-  // Renderizar paso 2: Verificación Didit
+  // Render step 2: Didit Verification
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#1a1718] text-white">
       <div className="w-full md:w-1/2 py-12 px-6 flex flex-col gap-6 justify-center items-center">
         
         <div className="text-center">
-          <h1 className="text-4xl font-semibold">Verificación de Identidad</h1>
-          <p className="text-gray-400 mt-2">Completa la verificación con Didit para continuar</p>
+          <h1 className="text-4xl font-semibold">Identity Verification</h1>
+          <p className="text-gray-400 mt-2">Complete verification with Didit to continue</p>
         </div>
 
         {success && (
@@ -549,12 +554,12 @@ function RegisterPageContent() {
         <div className="w-full max-w-md space-y-6">
           
           <div className="bg-[#2d2e33] rounded-2xl p-6 space-y-4">
-            <h3 className="text-xl font-semibold text-center">¿Por qué verificamos tu identidad?</h3>
+            <h3 className="text-xl font-semibold text-center">Why do we verify your identity?</h3>
             <ul className="space-y-2 text-sm text-gray-300">
-              <li>• Garantizar que eres una mujer real</li>
-              <li>• Proteger la comunidad de usuarios falsos</li>
-              <li>• Cumplir con los requisitos de la plataforma</li>
-              <li>• Proceso rápido y seguro</li>
+              <li>• Ensure you are a real woman</li>
+              <li>• Protect the community from fake users</li>
+              <li>• Comply with platform requirements</li>
+              <li>• Quick and secure process</li>
             </ul>
           </div>
 
@@ -568,7 +573,7 @@ function RegisterPageContent() {
                   : 'bg-[#ff29d7] text-white hover:bg-[#de69c7]'
               }`}
             >
-              {loading ? "Iniciando verificación..." : "VERIFICAR CON DIDIT"}
+              {loading ? "Starting verification..." : "VERIFY WITH DIDIT"}
             </button>
 
             <button 
@@ -580,7 +585,7 @@ function RegisterPageContent() {
                   : 'border-[#ff29d7] text-[#ff29d7] hover:bg-[#ff29d7] hover:text-white'
               }`}
             >
-              {loading ? "Procesando..." : "CONTINUAR SIN VERIFICACIÓN"}
+              {loading ? "Processing..." : "CONTINUE WITHOUT VERIFICATION"}
             </button>
           </div>
 
@@ -589,7 +594,7 @@ function RegisterPageContent() {
               onClick={() => setStep(1)}
               className="text-gray-400 hover:text-[#ff29d7] text-sm"
             >
-              ← Volver al formulario
+              ← Back to form
             </button>
           </div>
 
@@ -610,7 +615,7 @@ export default function RegisterPage() {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         </div>
-        <p className="mt-4 text-gray-300">Cargando registro...</p>
+        <p className="mt-4 text-gray-300">Loading registration...</p>
       </div>
     }>
       <RegisterPageContent />
