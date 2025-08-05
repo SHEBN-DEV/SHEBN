@@ -39,7 +39,7 @@ export async function POST(request) {
     if (logError) {
       console.error('❌ Error storing webhook log:', logError);
     } else {
-      console.log('✅ Webhook log stored:', null);
+      console.log('✅ Webhook log stored');
     }
 
     // Process webhook based on status
@@ -60,58 +60,80 @@ export async function POST(request) {
           date_of_birth: idVerification.date_of_birth
         });
 
-        // Store verification data using the correct table structure
-        const verificationRecord = {
-          user_id: null, // Will be linked when user completes registration
-          verification_provider: 'didit',
-          status: 'approved',
-          provider_verification_id: sessionId,
-          verification_data: {
-            session_id: sessionId,
-            status: payload.status,
-            workflow_id: payload.workflow_id,
-            personal_info: {
-              first_name: idVerification.first_name,
-              last_name: idVerification.last_name,
-              gender: idVerification.gender,
-              date_of_birth: idVerification.date_of_birth
-            },
-            document_info: {
-              document_number: idVerification.document_number,
-              date_of_issue: idVerification.date_of_issue,
-              issuing_state: idVerification.issuing_state,
-              document_type: idVerification.document_type
-            },
-            decision: payload.decision,
-            raw_payload: payload
-          }
-        };
+        // 1. Update verification_sessions table (following official pattern)
+        const { data: verificationSession, error: sessionError } = await supabase
+          .from('verification_sessions')
+          .update({
+            status: 'APPROVED',
+            verification_data: payload
+          })
+          .eq('session_id', sessionId)
+          .select()
+          .single();
 
-        console.log('💾 Storing verification record:', verificationRecord);
-
-        // Insert verification record
-        const { data, error } = await supabase
-          .from('user_verifications')
-          .insert(verificationRecord)
-          .select();
-
-        if (error) {
-          console.error('❌ Error storing verification:', error);
-          return NextResponse.json({
-            success: false,
-            error: 'Failed to store verification data'
-          }, { status: 500 });
+        if (sessionError) {
+          console.error('❌ Error updating verification session:', sessionError);
+        } else {
+          console.log('✅ Verification session updated:', verificationSession);
         }
 
-        console.log('✅ Verification stored successfully:', data);
+        // 2. Update user_verifications table
+        const { data: userVerification, error: verificationError } = await supabase
+          .from('user_verifications')
+          .update({
+            status: 'approved',
+            verification_data: {
+              session_id: sessionId,
+              status: payload.status,
+              workflow_id: payload.workflow_id,
+              personal_info: {
+                first_name: idVerification.first_name,
+                last_name: idVerification.last_name,
+                gender: idVerification.gender,
+                date_of_birth: idVerification.date_of_birth
+              },
+              document_info: {
+                document_number: idVerification.document_number,
+                date_of_issue: idVerification.date_of_issue,
+                issuing_state: idVerification.issuing_state,
+                document_type: idVerification.document_type
+              },
+              decision: payload.decision,
+              raw_payload: payload
+            }
+          })
+          .eq('session_id', sessionId)
+          .select()
+          .single();
 
-        // Update user profile if user_id is available
-        if (verificationRecord.user_id) {
-          await updateUserProfile(verificationRecord.user_id, {
-            is_verified: true,
-            gender: idVerification.gender,
-            verification_status: 'approved'
-          });
+        if (verificationError) {
+          console.error('❌ Error updating user verification:', verificationError);
+        } else {
+          console.log('✅ User verification updated:', userVerification);
+        }
+
+        // 3. If user_id exists, update profile (following official pattern)
+        if (verificationSession?.user_id) {
+          const { data: profileUpdate, error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              is_verified: true,
+              verification_status: 'approved',
+              date_of_birth: idVerification.date_of_birth,
+              document_expires_at: idVerification.expiration_date,
+              didit_verified: true,
+              didit_session_id: sessionId,
+              didit_verification_data: payload
+            })
+            .eq('id', verificationSession.user_id)
+            .select()
+            .single();
+
+          if (profileError) {
+            console.error('❌ Error updating profile:', profileError);
+          } else {
+            console.log('✅ Profile updated:', profileUpdate);
+          }
         }
 
         return NextResponse.json({
@@ -133,12 +155,10 @@ export async function POST(request) {
     } else if (payload.status === 'Not Started') {
       console.log('📝 Processing session creation webhook');
       
-      // Store initial session record
+      // Create initial verification session (following official pattern)
       const sessionRecord = {
-        user_id: null,
-        verification_provider: 'didit',
-        status: 'not_started',
-        provider_verification_id: payload.session_id,
+        session_id: payload.session_id,
+        status: 'NOT_STARTED',
         verification_data: {
           session_id: payload.session_id,
           status: payload.status,
@@ -147,14 +167,36 @@ export async function POST(request) {
         }
       };
 
-      const { error } = await supabase
-        .from('user_verifications')
+      const { error: sessionError } = await supabase
+        .from('verification_sessions')
         .insert(sessionRecord);
 
-      if (error) {
-        console.error('❌ Error storing session:', error);
+      if (sessionError) {
+        console.error('❌ Error creating verification session:', sessionError);
       } else {
-        console.log('✅ Session stored successfully');
+        console.log('✅ Verification session created');
+      }
+
+      // Create initial user verification record
+      const verificationRecord = {
+        session_id: payload.session_id,
+        status: 'pending',
+        verification_data: {
+          session_id: payload.session_id,
+          status: payload.status,
+          workflow_id: payload.workflow_id,
+          created_at: payload.created_at
+        }
+      };
+
+      const { error: verificationError } = await supabase
+        .from('user_verifications')
+        .insert(verificationRecord);
+
+      if (verificationError) {
+        console.error('❌ Error creating user verification:', verificationError);
+      } else {
+        console.log('✅ User verification created');
       }
 
       return NextResponse.json({
@@ -181,26 +223,5 @@ export async function POST(request) {
       verified: false,
       error: 'Internal server error'
     }, { status: 500 });
-  }
-}
-
-// Function to update user profile
-async function updateUserProfile(userId, profileData) {
-  try {
-    console.log('👤 Updating user profile:', userId, profileData);
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(profileData)
-      .eq('id', userId)
-      .select();
-    
-    if (error) {
-      console.error('❌ Error updating user profile:', error);
-    } else {
-      console.log('✅ User profile updated successfully:', data);
-    }
-  } catch (error) {
-    console.error('❌ Error in updateUserProfile:', error);
   }
 }

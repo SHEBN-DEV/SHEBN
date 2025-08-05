@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Use service role key for verification checking
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -8,39 +9,27 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('user_id');
     const sessionId = searchParams.get('session_id');
 
-    if (!userId && !sessionId) {
-      return NextResponse.json({ 
-        error: 'Se requiere user_id o session_id' 
+    if (!sessionId) {
+      return NextResponse.json({
+        verified: false,
+        status: 'error',
+        message: 'Session ID is required'
       }, { status: 400 });
     }
 
-    let query = supabase
-      .from('user_verifications')
+    console.log('🔍 Checking verification for session:', sessionId);
+
+    // 1. Check verification_sessions table (following official pattern)
+    const { data: verificationSession, error: sessionError } = await supabase
+      .from('verification_sessions')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .eq('session_id', sessionId)
+      .single();
 
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
-
-    if (sessionId) {
-      query = query.eq('provider_verification_id', sessionId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('❌ Error checking verification:', error);
-      return NextResponse.json({ 
-        error: 'Error al verificar estado' 
-      }, { status: 500 });
-    }
-
-    if (!data || data.length === 0) {
+    if (sessionError) {
+      console.error('❌ Error checking verification session:', sessionError);
       return NextResponse.json({
         verified: false,
         status: 'not_found',
@@ -48,29 +37,64 @@ export async function GET(request) {
       });
     }
 
-    const verification = data[0];
-    const verificationData = verification.verification_data || {};
-    const personalInfo = verificationData.personal_info || {};
-    const documentInfo = verificationData.document_info || {};
-    
-    return NextResponse.json({
-      verified: verification.status === 'approved',
-      status: verification.status,
-      gender: personalInfo.gender,
-      first_name: personalInfo.first_name,
-      last_name: personalInfo.last_name,
-      document_number: documentInfo.document_number,
-      date_of_birth: personalInfo.date_of_birth,
-      issuing_state: documentInfo.issuing_state,
-      created_at: verification.created_at,
-      updated_at: verification.updated_at,
-      session_id: verification.provider_verification_id
-    });
+    console.log('✅ Verification session found:', verificationSession);
+
+    // 2. Check user_verifications table
+    const { data: userVerification, error: verificationError } = await supabase
+      .from('user_verifications')
+      .select('*')
+      .eq('session_id', sessionId)
+      .single();
+
+    if (verificationError) {
+      console.error('❌ Error checking user verification:', verificationError);
+    } else {
+      console.log('✅ User verification found:', userVerification);
+    }
+
+    // 3. Determine verification status
+    const isApproved = verificationSession.status === 'APPROVED';
+    const verificationData = verificationSession.verification_data;
+
+    if (isApproved && verificationData?.decision?.id_verification) {
+      const idVerification = verificationData.decision.id_verification;
+      
+      console.log('🎉 Verification approved:', {
+        session_id: sessionId,
+        first_name: idVerification.first_name,
+        last_name: idVerification.last_name,
+        gender: idVerification.gender,
+        document_number: idVerification.document_number
+      });
+
+      return NextResponse.json({
+        verified: true,
+        status: 'approved',
+        session_id: sessionId,
+        gender: idVerification.gender,
+        first_name: idVerification.first_name,
+        last_name: idVerification.last_name,
+        document_number: idVerification.document_number,
+        date_of_birth: idVerification.date_of_birth,
+        verification_data: verificationData
+      });
+    } else {
+      console.log('⏳ Verification not yet approved:', verificationSession.status);
+      
+      return NextResponse.json({
+        verified: false,
+        status: verificationSession.status.toLowerCase(),
+        session_id: sessionId,
+        message: `Verificación en estado: ${verificationSession.status}`
+      });
+    }
 
   } catch (error) {
-    console.error('❌ Error in check verification:', error);
-    return NextResponse.json({ 
-      error: 'Error interno del servidor' 
+    console.error('❌ Error checking verification:', error);
+    return NextResponse.json({
+      verified: false,
+      status: 'error',
+      message: 'Error interno del servidor'
     }, { status: 500 });
   }
 } 

@@ -1,13 +1,13 @@
 -- =====================================================
 -- COMPLETE SHEBN DATABASE CONFIGURATION
--- Script to create the entire database from scratch
+-- Updated to follow official Didit demo pattern
 -- =====================================================
 
 -- 1. Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 2. Create user profiles table
+-- 2. Create user profiles table (following official pattern)
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     full_name TEXT NOT NULL,
@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT UNIQUE NOT NULL,
     gender TEXT NOT NULL CHECK (gender IN ('female', 'male', 'other')),
     verification_status TEXT DEFAULT 'pending' CHECK (verification_status IN ('pending', 'completed', 'rejected', 'expired', 'error', 'approved')),
+    is_verified BOOLEAN DEFAULT FALSE, -- Following official pattern
+    date_of_birth DATE, -- Following official pattern
+    document_expires_at DATE, -- Following official pattern
     bio TEXT,
     location TEXT,
     portfolio_url TEXT,
@@ -26,21 +29,31 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 3. Create user verifications table
-CREATE TABLE IF NOT EXISTS public.user_verifications (
+-- 3. Create verification sessions table (following official pattern)
+CREATE TABLE IF NOT EXISTS public.verification_sessions (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    verification_provider TEXT NOT NULL DEFAULT 'didit',
-    status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'declined', 'failed')),
-    verification_data JSONB,
-    provider_verification_id TEXT,
-    session_id TEXT,
-    workflow_id TEXT,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    session_id TEXT UNIQUE NOT NULL, -- Didit session ID
+    status TEXT NOT NULL DEFAULT 'NOT_STARTED' CHECK (status IN ('NOT_STARTED', 'IN_PROGRESS', 'APPROVED', 'DECLINED', 'IN_REVIEW', 'EXPIRED', 'ABANDONED', 'KYC_EXPIRED')),
+    verification_data JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. Create projects table
+-- 4. Create user verifications table (for detailed verification data)
+CREATE TABLE IF NOT EXISTS public.user_verifications (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    verification_provider TEXT NOT NULL DEFAULT 'didit',
+    status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'declined', 'failed')),
+    provider_verification_id TEXT UNIQUE,
+    session_id TEXT UNIQUE,
+    verification_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. Create projects table
 CREATE TABLE IF NOT EXISTS public.projects (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     title TEXT NOT NULL,
@@ -56,7 +69,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 5. Create project applications table
+-- 6. Create project applications table
 CREATE TABLE IF NOT EXISTS public.project_applications (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
@@ -70,7 +83,7 @@ CREATE TABLE IF NOT EXISTS public.project_applications (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. Create user connections table
+-- 7. Create user connections table
 CREATE TABLE IF NOT EXISTS public.user_connections (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     requester_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -81,16 +94,16 @@ CREATE TABLE IF NOT EXISTS public.user_connections (
     UNIQUE(requester_id, receiver_id)
 );
 
--- 7. Create webhook logs table
+-- 8. Create webhook logs table
 CREATE TABLE IF NOT EXISTS public.webhook_logs (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     session_id TEXT NOT NULL,
-    webhook_data JSONB,
+    webhook_data JSONB DEFAULT '{}',
     status TEXT,
     received_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 8. Create function to handle new users
+-- 9. Create function to handle new users
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -101,46 +114,28 @@ BEGIN
         email,
         gender,
         verification_status,
-        didit_verified,
-        didit_session_id,
-        didit_verification_data,
-        created_at,
-        updated_at
-    )
-    VALUES (
+        is_verified
+    ) VALUES (
         NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
-        COALESCE(NEW.raw_user_meta_data->>'user_name', 'user_' || substr(NEW.id::text, 1, 8)),
+        COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+        COALESCE(NEW.raw_user_meta_data->>'user_name', ''),
         NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'gender', 'female'),
-        COALESCE(NEW.raw_user_meta_data->>'verification_status', 'pending'),
-        COALESCE((NEW.raw_user_meta_data->>'didit_verified')::boolean, false),
-        NEW.raw_user_meta_data->>'didit_session_id',
-        CASE
-            WHEN NEW.raw_user_meta_data->>'didit_session_id' IS NOT NULL
-            THEN jsonb_build_object(
-                'session_id', NEW.raw_user_meta_data->>'didit_session_id',
-                'status', COALESCE(NEW.raw_user_meta_data->>'verification_status', 'pending'),
-                'created_at', NOW()
-            )
-            ELSE NULL
-        END,
-        NOW(),
-        NOW()
+        COALESCE(NEW.raw_user_meta_data->>'gender', 'other'),
+        'pending',
+        FALSE
     );
-    
     RETURN NEW;
 END;
-$$ language 'plpgsql' SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 9. Create trigger for new users
+-- 10. Create trigger for new users
 DROP TRIGGER IF EXISTS handle_new_user ON auth.users;
 CREATE TRIGGER handle_new_user
     AFTER INSERT ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION handle_new_user();
 
--- 10. Create function to automatically update updated_at
+-- 11. Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -149,20 +144,26 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- 11. Create triggers for updated_at
+-- 12. Create triggers for updated_at
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_verification_sessions_updated_at BEFORE UPDATE ON public.verification_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_verifications_updated_at BEFORE UPDATE ON public.user_verifications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_project_applications_updated_at BEFORE UPDATE ON public.project_applications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_connections_updated_at BEFORE UPDATE ON public.user_connections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 12. Create indexes to optimize queries
+-- 13. Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
 CREATE INDEX IF NOT EXISTS idx_profiles_user_name ON public.profiles(user_name);
 CREATE INDEX IF NOT EXISTS idx_profiles_gender ON public.profiles(gender);
 CREATE INDEX IF NOT EXISTS idx_profiles_verification_status ON public.profiles(verification_status);
+CREATE INDEX IF NOT EXISTS idx_profiles_is_verified ON public.profiles(is_verified);
 CREATE INDEX IF NOT EXISTS idx_profiles_didit_verified ON public.profiles(didit_verified);
 CREATE INDEX IF NOT EXISTS idx_profiles_didit_session_id ON public.profiles(didit_session_id);
+
+CREATE INDEX IF NOT EXISTS idx_verification_sessions_user_id ON public.verification_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_verification_sessions_session_id ON public.verification_sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_verification_sessions_status ON public.verification_sessions(status);
 
 CREATE INDEX IF NOT EXISTS idx_user_verifications_user_id ON public.user_verifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_verifications_provider ON public.user_verifications(verification_provider);
@@ -183,102 +184,64 @@ CREATE INDEX IF NOT EXISTS idx_user_connections_status ON public.user_connection
 
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_session_id ON public.webhook_logs(session_id);
 
--- 13. Configure Row Level Security (RLS)
+-- 14. Enable Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.verification_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.webhook_logs ENABLE ROW LEVEL SECURITY;
 
--- 14. Create RLS policies for profiles
-CREATE POLICY "Users can view their own profile" ON public.profiles
-    FOR SELECT USING (auth.uid() = id);
+-- 15. Create RLS policies
+-- Profiles policies
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Service role can manage all profiles" ON public.profiles FOR ALL USING (auth.role() = 'service_role');
 
-CREATE POLICY "Users can update their own profile" ON public.profiles
-    FOR UPDATE USING (auth.uid() = id);
+-- Verification sessions policies
+CREATE POLICY "Users can view own verification sessions" ON public.verification_sessions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Service role can manage all verification sessions" ON public.verification_sessions FOR ALL USING (auth.role() = 'service_role');
 
-CREATE POLICY "Users can insert their own profile" ON public.profiles
-    FOR INSERT WITH CHECK (auth.uid() = id);
+-- User verifications policies
+CREATE POLICY "Users can view own verifications" ON public.user_verifications FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Service role can manage all verifications" ON public.user_verifications FOR ALL USING (auth.role() = 'service_role');
 
--- 15. Create RLS policies for user_verifications
-CREATE POLICY "Users can view their own verifications" ON public.user_verifications
-    FOR SELECT USING (auth.uid() = user_id);
+-- Projects policies
+CREATE POLICY "Users can view all projects" ON public.projects FOR SELECT USING (true);
+CREATE POLICY "Users can create projects" ON public.projects FOR INSERT WITH CHECK (auth.uid() = owner_id);
+CREATE POLICY "Users can update own projects" ON public.projects FOR UPDATE USING (auth.uid() = owner_id);
+CREATE POLICY "Users can delete own projects" ON public.projects FOR DELETE USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can insert their own verifications" ON public.user_verifications
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- Project applications policies
+CREATE POLICY "Users can view project applications" ON public.project_applications FOR SELECT USING (true);
+CREATE POLICY "Users can create applications" ON public.project_applications FOR INSERT WITH CHECK (auth.uid() = applicant_id);
+CREATE POLICY "Users can update own applications" ON public.project_applications FOR UPDATE USING (auth.uid() = applicant_id);
 
--- 16. Create RLS policies for projects
-CREATE POLICY "Users can view all projects" ON public.projects
-    FOR SELECT USING (true);
+-- User connections policies
+CREATE POLICY "Users can view own connections" ON public.user_connections FOR SELECT USING (auth.uid() = requester_id OR auth.uid() = receiver_id);
+CREATE POLICY "Users can create connections" ON public.user_connections FOR INSERT WITH CHECK (auth.uid() = requester_id);
+CREATE POLICY "Users can update own connections" ON public.user_connections FOR UPDATE USING (auth.uid() = requester_id OR auth.uid() = receiver_id);
 
-CREATE POLICY "Users can create their own projects" ON public.projects
-    FOR INSERT WITH CHECK (auth.uid() = owner_id);
+-- Webhook logs policies
+CREATE POLICY "Service role can manage all webhook logs" ON public.webhook_logs FOR ALL USING (auth.role() = 'service_role');
 
-CREATE POLICY "Users can update their own projects" ON public.projects
-    FOR UPDATE USING (auth.uid() = owner_id);
+-- 16. Grant permissions
+GRANT SELECT ON public.profiles TO authenticated;
+GRANT UPDATE ON public.profiles TO authenticated;
+GRANT SELECT ON public.verification_sessions TO authenticated;
+GRANT SELECT ON public.user_verifications TO authenticated;
+GRANT SELECT ON public.projects TO authenticated;
+GRANT INSERT, UPDATE ON public.projects TO authenticated;
+GRANT SELECT ON public.project_applications TO authenticated;
+GRANT INSERT, UPDATE ON public.project_applications TO authenticated;
+GRANT SELECT ON public.user_connections TO authenticated;
+GRANT INSERT, UPDATE ON public.user_connections TO authenticated;
 
-CREATE POLICY "Users can delete their own projects" ON public.projects
-    FOR DELETE USING (auth.uid() = owner_id);
-
--- 17. Create RLS policies for project_applications
-CREATE POLICY "Users can view applications for projects they own" ON public.project_applications
-    FOR SELECT USING (
-        auth.uid() = applicant_id OR 
-        auth.uid() IN (
-            SELECT owner_id FROM public.projects WHERE id = project_id
-        )
-    );
-
-CREATE POLICY "Users can create their own applications" ON public.project_applications
-    FOR INSERT WITH CHECK (auth.uid() = applicant_id);
-
-CREATE POLICY "Users can update their own applications" ON public.project_applications
-    FOR UPDATE USING (auth.uid() = applicant_id);
-
--- 18. Create RLS policies for user_connections
-CREATE POLICY "Users can view their own connections" ON public.user_connections
-    FOR SELECT USING (auth.uid() = requester_id OR auth.uid() = receiver_id);
-
-CREATE POLICY "Users can create connections" ON public.user_connections
-    FOR INSERT WITH CHECK (auth.uid() = requester_id);
-
-CREATE POLICY "Users can update their own connections" ON public.user_connections
-    FOR UPDATE USING (auth.uid() = requester_id OR auth.uid() = receiver_id);
-
--- 19. Create RLS policies for webhook_logs (only for webhooks)
-CREATE POLICY "Webhook logs are readable by service role" ON public.webhook_logs
-    FOR SELECT USING (true);
-
-CREATE POLICY "Webhook logs can be inserted by service role" ON public.webhook_logs
-    FOR INSERT WITH CHECK (true);
-
--- 20. Verify that everything was created correctly
-SELECT 'Profiles table' as table_name, COUNT(*) as row_count FROM public.profiles
-UNION ALL
-SELECT 'User verifications table' as table_name, COUNT(*) as row_count FROM public.user_verifications
-UNION ALL
-SELECT 'Projects table' as table_name, COUNT(*) as row_count FROM public.projects
-UNION ALL
-SELECT 'Project applications table' as table_name, COUNT(*) as row_count FROM public.project_applications
-UNION ALL
-SELECT 'User connections table' as table_name, COUNT(*) as row_count FROM public.user_connections
-UNION ALL
-SELECT 'Webhook logs table' as table_name, COUNT(*) as row_count FROM public.webhook_logs;
-
--- 21. Verify that the trigger exists
-SELECT 
-    trigger_name,
-    event_manipulation,
-    event_object_table
-FROM information_schema.triggers 
-WHERE trigger_name = 'handle_new_user';
-
--- 22. Verify that the function exists
-SELECT 
-    routine_name,
-    routine_type
-FROM information_schema.routines 
-WHERE routine_name = 'handle_new_user';
-
--- Database completely configured! 🎉 
+GRANT ALL ON public.profiles TO service_role;
+GRANT ALL ON public.verification_sessions TO service_role;
+GRANT ALL ON public.user_verifications TO service_role;
+GRANT ALL ON public.projects TO service_role;
+GRANT ALL ON public.project_applications TO service_role;
+GRANT ALL ON public.user_connections TO service_role;
+GRANT ALL ON public.webhook_logs TO service_role; 
