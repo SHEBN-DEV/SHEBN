@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server';
 import { didit } from '../../../lib/didit/client';
-import { DIDIT_CONFIG } from '../../../lib/didit/constants';
 
 // GET method to test that the endpoint exists
 export async function GET() {
   return NextResponse.json({ 
     message: 'Didit create-session endpoint is working',
     timestamp: new Date().toISOString(),
-    status: 'active',
-    config: {
-      hasApiKey: !!DIDIT_CONFIG.API_KEY,
-      hasWorkflowId: !!DIDIT_CONFIG.WORKFLOW_ID,
-      callbackUrl: DIDIT_CONFIG.CALLBACK_URL
-    }
+    status: 'active'
   });
 }
 
@@ -38,11 +32,11 @@ export async function POST(request) {
     const finalUserId = userId || `shebn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     // Create callback URL with user data
-    const callbackUrl = `${DIDIT_CONFIG.CALLBACK_URL}?user_data=${encodeURIComponent(email)}&user_id=${finalUserId}`;
+    const callbackUrl = `https://shebn.vercel.app/auth/register/callback?user_data=${encodeURIComponent(email)}&user_id=${finalUserId}`;
     
     console.log('📤 Creating session with Didit client...');
     
-    // Use the new expert Didit client
+    // Use the simplified Didit client
     const sessionData = await didit.createSession({
       userId: finalUserId,
       email: email,
@@ -59,22 +53,6 @@ export async function POST(request) {
       has_verification_url: !!sessionData.verification_url,
       status: sessionData.status
     });
-
-    // Store session data in database for tracking
-    try {
-      // This would typically be stored in a database
-      // For now, we'll just log it
-      console.log('💾 Session data for storage:', {
-        session_id: sessionData.session_id,
-        user_email: email,
-        user_id: finalUserId,
-        status: sessionData.status,
-        created_at: sessionData.created_at
-      });
-    } catch (dbError) {
-      console.warn('⚠️ Error storing session data:', dbError);
-      // Continue even if database storage fails
-    }
     
     return NextResponse.json({
       success: true,

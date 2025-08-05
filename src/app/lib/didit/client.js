@@ -1,4 +1,4 @@
-import { DIDIT_CONFIG, SECURITY_CONFIG } from './constants';
+import { DIDIT_CONFIG } from './constants';
 
 export class DiditClient {
   constructor() {
@@ -6,26 +6,6 @@ export class DiditClient {
     this.workflowId = DIDIT_CONFIG.WORKFLOW_ID;
     this.baseUrl = DIDIT_CONFIG.API_ENDPOINTS.BASE;
     this.verificationUrl = DIDIT_CONFIG.API_ENDPOINTS.VERIFICATION;
-    this.webhookSecret = DIDIT_CONFIG.WEBHOOK_SECRET;
-    this.webhookUrl = DIDIT_CONFIG.WEBHOOK_URL;
-    this.callbackUrl = DIDIT_CONFIG.CALLBACK_URL;
-  }
-
-  /**
-   * Validate callback URL for security
-   * @param {string} url - URL to validate
-   * @returns {boolean} Whether URL is allowed
-   */
-  validateCallbackUrl(url) {
-    try {
-      const urlObj = new URL(url);
-      return SECURITY_CONFIG.ALLOWED_CALLBACK_DOMAINS.some(domain => 
-        urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain)
-      );
-    } catch (error) {
-      console.error('❌ Invalid callback URL:', error);
-      return false;
-    }
   }
 
   /**
@@ -39,11 +19,6 @@ export class DiditClient {
    */
   async createSession({ userId, email, metadata = {}, callbackUrl }) {
     try {
-      // Validate callback URL for security
-      if (!this.validateCallbackUrl(callbackUrl)) {
-        throw new Error('Invalid callback URL for security reasons');
-      }
-
       const sessionId = `shebn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       const payload = {
@@ -55,8 +30,7 @@ export class DiditClient {
           ...metadata,
           user_id: userId,
           email: email,
-          platform: 'shebn',
-          timestamp: new Date().toISOString()
+          platform: 'shebn'
         }
       };
 
@@ -147,36 +121,28 @@ export class DiditClient {
   }
 
   /**
-   * Verify webhook signature securely
+   * Verify webhook signature
    * @param {string} signature - Webhook signature
    * @param {Object} payload - Webhook payload
    * @returns {boolean} Signature validity
    */
   verifyWebhook(signature, payload) {
-    if (!this.webhookSecret) {
+    // For free plan, accept all webhooks
+    // In production, implement proper signature verification
+    const webhookSecret = process.env.DIDIT_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
       console.warn('⚠️ No webhook secret configured, accepting all webhooks');
       return true;
     }
 
-    try {
-      // TODO: Implement proper signature verification
-      // This would involve creating a hash of the payload and comparing with the signature
-      // For now, we'll do basic validation
-      if (!signature || !payload) {
-        console.error('❌ Missing signature or payload');
-        return false;
-      }
-
-      // Basic validation - in production, implement proper HMAC verification
-      return true;
-    } catch (error) {
-      console.error('❌ Error verifying webhook signature:', error);
-      return false;
-    }
+    // TODO: Implement proper signature verification
+    // This would involve creating a hash of the payload and comparing with the signature
+    return true;
   }
 
   /**
-   * Process webhook data securely
+   * Process webhook data
    * @param {Object} webhookData - Raw webhook data
    * @returns {Object} Processed webhook data
    */
@@ -190,20 +156,11 @@ export class DiditClient {
       updated_at
     } = webhookData;
 
-    // Sanitize user data for security
-    const sanitizedUserData = user_data ? {
-      ...user_data,
-      // Remove sensitive fields if present
-      id_number: undefined,
-      passport_number: undefined,
-      ssn: undefined
-    } : null;
-
     return {
       session_id,
       status: status || 'approved',
       verified: status === 'approved' || status === 'verified',
-      user_data: sanitizedUserData,
+      user_data,
       metadata,
       created_at,
       updated_at,
@@ -212,7 +169,7 @@ export class DiditClient {
   }
 
   /**
-   * Extract gender from verification data securely
+   * Extract gender from verification data
    * @param {Object} verificationData - Verification data from Didit
    * @returns {string} Gender ('female', 'male', 'other')
    */
@@ -248,7 +205,7 @@ export class DiditClient {
   }
 
   /**
-   * Validate verification completion securely
+   * Validate verification completion
    * @param {Object} verificationData - Verification data
    * @returns {boolean} Whether verification is valid
    */
@@ -257,12 +214,6 @@ export class DiditClient {
     
     if (!session_id) {
       console.error('❌ No session_id in verification data');
-      return false;
-    }
-
-    // Validate session_id format for security
-    if (!/^[a-zA-Z0-9_-]+$/.test(session_id)) {
-      console.error('❌ Invalid session_id format');
       return false;
     }
 

@@ -1,16 +1,14 @@
 export const DIDIT_CONFIG = {
   API_ENDPOINTS: {
-    BASE: process.env.NEXT_VERIFICATION_BASE_URL || 'https://api.didit.me',
-    VERIFICATION: process.env.NEXT_VERIFICATION_BASE_URL || 'https://verification.didit.me',
+    BASE: process.env.DIDIT_API_BASE_URL || 'https://api.didit.me',
+    VERIFICATION: process.env.DIDIT_VERIFICATION_URL || 'https://verification.didit.me',
     SESSIONS: '/v1/sessions',
     VERIFICATION_SESSIONS: '/v2/session/'
   },
-  API_KEY: process.env.NEXT_PUBLIC_DIDIT_API_KEY || process.env.API_KEY,
-  WORKFLOW_ID: process.env.VERIFICATION_WORKFLOW_ID,
+  API_KEY: process.env.API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
+  WORKFLOW_ID: process.env.VERIFICATION_WORKFLOW_ID || 'cf449f7e-1848-4e21-a9b4-084000bfdc26',
   WEBHOOK_SECRET: process.env.DIDIT_WEBHOOK_SECRET,
-  WEBHOOK_URL: process.env.DIDIT_WEBHOOK_URL,
-  WEBHOOK_VERSION: process.env.DIDIT_WEBHOOK_VERSION || 'v1',
-  CALLBACK_URL: process.env.NEXT_PUBLIC_DIDIT_CALLBACK_URL || 'https://shebn.vercel.app/auth/register/callback'
+  CALLBACK_URL: process.env.VERIFICATION_CALLBACK_URL || 'https://shebn.vercel.app/auth/register/callback'
 };
 
 export const VERIFICATION_STATUS = {

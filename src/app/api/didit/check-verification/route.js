@@ -1,11 +1,5 @@
 import { NextResponse } from 'next/server';
 import { didit } from '../../../lib/didit/client';
-import { createClient } from '@supabase/supabase-js';
-
-// Use service role key for secure database operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET(request) {
   try {
@@ -27,43 +21,8 @@ export async function GET(request) {
 
     let verificationStatus = null;
 
-    // If we have a sessionId, check it directly from database
+    // If we have a sessionId, check it with Didit API
     if (sessionId) {
-      console.log('🔍 Checking session status in database...');
-      
-      try {
-        const { data: verificationData, error: dbError } = await supabase
-          .from('user_verifications')
-          .select('*')
-          .eq('session_id', sessionId)
-          .eq('verification_provider', 'didit')
-          .single();
-
-        if (dbError && dbError.code !== 'PGRST116') {
-          console.warn('⚠️ Error checking database:', dbError);
-        } else if (verificationData) {
-          verificationStatus = {
-            session_id: sessionId,
-            status: verificationData.status,
-            verified: verificationData.status === 'approved',
-            plan: 'database',
-            api_verified: true,
-            user_data: verificationData.verification_data?.user_data || null
-          };
-          
-          console.log('✅ Session status found in database:', {
-            session_id: sessionId,
-            status: verificationData.status,
-            verified: verificationData.status === 'approved'
-          });
-        }
-      } catch (apiError) {
-        console.warn('⚠️ Error checking database:', apiError);
-      }
-    }
-
-    // If we don't have verification status yet, check Didit API
-    if (!verificationStatus && sessionId) {
       console.log('🔍 Checking session status with Didit API...');
       
       try {
@@ -87,12 +46,11 @@ export async function GET(request) {
       }
     }
 
-    // If we still don't have verification status, use fallback
+    // If we don't have verification status yet, use fallback
     if (!verificationStatus) {
       console.log('🔍 Using fallback verification data...');
       
       // For now, we'll simulate a successful verification for the free plan
-      // In a real implementation, you would check your database
       verificationStatus = {
         session_id: sessionId || `simulated_${Date.now()}`,
         status: 'approved',
