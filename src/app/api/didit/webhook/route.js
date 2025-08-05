@@ -116,14 +116,17 @@ export async function POST(request) {
 
         return NextResponse.json({
           success: true,
+          verified: true,
           message: 'Verification processed successfully',
-          session_id: sessionId
+          session_id: sessionId,
+          status: 'approved'
         });
 
       } catch (error) {
         console.error('❌ Error processing verification:', error);
         return NextResponse.json({
           success: false,
+          verified: false,
           error: 'Failed to process verification'
         }, { status: 500 });
       }
@@ -156,13 +159,16 @@ export async function POST(request) {
 
       return NextResponse.json({
         success: true,
+        verified: false,
         message: 'Session created successfully',
-        session_id: payload.session_id
+        session_id: payload.session_id,
+        status: 'not_started'
       });
     } else {
       console.log('ℹ️ Unhandled webhook status:', payload.status);
       return NextResponse.json({
         success: true,
+        verified: false,
         message: 'Webhook received but not processed',
         status: payload.status
       });
@@ -172,6 +178,7 @@ export async function POST(request) {
     console.error('❌ Error processing webhook:', error);
     return NextResponse.json({
       success: false,
+      verified: false,
       error: 'Internal server error'
     }, { status: 500 });
   }
