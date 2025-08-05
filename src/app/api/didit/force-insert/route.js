@@ -9,23 +9,28 @@ export async function GET() {
   try {
     console.log('🧪 Force inserting verification data from webhook');
     
-    // Datos exactos del webhook que acabamos de recibir
+    // Datos adaptados a la estructura real de la tabla
     const verificationRecord = {
       user_id: null, // Sin user_id por ahora
-      didit_session_id: 'd88ceb7e-fee4-4fc8-a163-05af46510f96',
+      verification_provider: 'didit',
       status: 'approved',
-      first_name: 'Lina Maria',
-      last_name: 'Giraldo Tapiero',
-      document_number: '1081410492',
-      date_of_birth: '1992-07-20',
-      date_of_issue: '2010-09-08',
-      gender: 'F',
-      issuing_state: 'COL',
-      document_type: 'Identity Card',
-      raw_didit_data: {
+      provider_verification_id: 'd88ceb7e-fee4-4fc8-a163-05af46510f96',
+      verification_data: {
         session_id: 'd88ceb7e-fee4-4fc8-a163-05af46510f96',
         status: 'Approved',
         workflow_id: 'cf449f7e-1848-4e21-a9b4-084000bfdc26',
+        personal_info: {
+          first_name: 'Lina Maria',
+          last_name: 'Giraldo Tapiero',
+          gender: 'F',
+          date_of_birth: '1992-07-20'
+        },
+        document_info: {
+          document_number: '1081410492',
+          date_of_issue: '2010-09-08',
+          issuing_state: 'COL',
+          document_type: 'Identity Card'
+        },
         decision: {
           id_verification: {
             gender: 'F',
@@ -43,7 +48,7 @@ export async function GET() {
     
     console.log('💾 Inserting verification record:', verificationRecord);
     
-    // Insertar en Supabase
+    // Insertar en Supabase usando la estructura correcta
     const { data, error } = await supabase
       .from('user_verifications')
       .insert(verificationRecord)

@@ -28,7 +28,7 @@ export async function GET(request) {
     }
 
     if (sessionId) {
-      query = query.eq('didit_session_id', sessionId);
+      query = query.eq('provider_verification_id', sessionId);
     }
 
     const { data, error } = await query;
@@ -49,19 +49,22 @@ export async function GET(request) {
     }
 
     const verification = data[0];
+    const verificationData = verification.verification_data || {};
+    const personalInfo = verificationData.personal_info || {};
+    const documentInfo = verificationData.document_info || {};
     
     return NextResponse.json({
       verified: verification.status === 'approved',
       status: verification.status,
-      gender: verification.gender,
-      first_name: verification.first_name,
-      last_name: verification.last_name,
-      document_number: verification.document_number,
-      date_of_birth: verification.date_of_birth,
-      issuing_state: verification.issuing_state,
+      gender: personalInfo.gender,
+      first_name: personalInfo.first_name,
+      last_name: personalInfo.last_name,
+      document_number: documentInfo.document_number,
+      date_of_birth: personalInfo.date_of_birth,
+      issuing_state: documentInfo.issuing_state,
       created_at: verification.created_at,
       updated_at: verification.updated_at,
-      session_id: verification.didit_session_id
+      session_id: verification.provider_verification_id
     });
 
   } catch (error) {
