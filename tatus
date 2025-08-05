@@ -1,0 +1,20 @@
+[33m24268d1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m ADD: Simple test endpoint with hardcoded workflow 5uhSPBvSG - Direct test to verify QR generation works
+[33me49d0b9[m FIX: Update all workflow references to 5uhSPBvSG - Ensure all endpoints use the working QR workflow
+[33mac8b032[m ADD: Test endpoint for QR verification - Simple endpoint to test QR generation with workflow 5uhSPBvSG
+[33m9a611f9[m RESTORE: Working QR generation - Reverted to workflow 5uhSPBvSG that generates QR correctly
+[33me71f320[m Fix Didit integration regression - revert to working configuration
+[33m8a0406e[m feat: Implement expert Didit integration
+[33m3088730[m  Mejorar logging del webhook para debug de user_verifications
+[33m54b7fb2[m  Corregir relación entre webhook y perfiles - usar user_verifications como intermediario
+[33ma023085[m  Hacer callback más robusto para manejar diferentes formatos de parámetros de Didit
+[33medbb860[m  Corregir tabla profiles: agregar columnas Didit y actualizar trigger
+[33m0aec145[m  Crear endpoint verification-callback que faltaba (causaba error 404)
+[33mda4ebb8[m  Actualizar callback para usar endpoint correcto de Didit API
+[33m6d83c38[m  Agregar callback_url a Didit para redirección automática
+[33m734cb88[m  Corregir URL de verificación: usar formato correcto de Didit /session/{token}
+[33mf4d5f84[m  Corregir endpoint Didit: usar /v2/session/{sessionId}/decision/ según documentación oficial
+[33m9ab0786[m  Actualizar workflow_id correcto de Didit: cf449f7e-1848-4e21-a9b4-084000bfdc26
+[33m4c49875[m  Solucionar CORS: crear endpoint backend para Didit y actualizar frontend
+[33m64e5d30[m  Corregir headers Didit: usar x-api-key en lugar de Authorization Bearer según documentación oficial
+[33mb3ea33c[m  Corregir implementación Didit: usar endpoint POST correcto /v2/session/ según documentación oficial
+[33mbdc6b7c[m  Implementar solución completa basada en repo oficial Didit: callback con validación API, parámetros correctos y actualización Supabase

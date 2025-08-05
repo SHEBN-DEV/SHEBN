@@ -17,16 +17,9 @@ export default function QRTestPage() {
       const workflowId = '5uhSPBvSG';
       const sessionId = `page_qr_${Date.now()}`;
       
+      // Payload exacto según documentación oficial de Didit
       const payload = {
-        session_id: sessionId,
-        workflow_id: workflowId,
-        callback_url: 'https://shebn.vercel.app/api/didit/webhook',
-        user_data: 'test@shebn.com',
-        metadata: {
-          platform: 'shebn',
-          page_qr: true,
-          test_mode: true
-        }
+        workflow_id: workflowId
       };
 
       console.log('📤 Enviando payload desde página:', payload);
