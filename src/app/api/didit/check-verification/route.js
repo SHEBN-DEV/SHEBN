@@ -1,96 +1,73 @@
 import { NextResponse } from 'next/server';
-import { didit } from '../../../lib/didit/client';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
+    const userId = searchParams.get('user_id');
     const sessionId = searchParams.get('session_id');
 
-    if (!email && !sessionId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Email or session_id is required'
+    if (!userId && !sessionId) {
+      return NextResponse.json({ 
+        error: 'Se requiere user_id o session_id' 
       }, { status: 400 });
     }
 
-    console.log('🔍 Checking verification status:', { 
-      email: email ? 'Present' : 'Missing',
-      sessionId: sessionId || 'Not provided'
-    });
+    let query = supabase
+      .from('user_verifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    let verificationStatus = null;
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
 
-    // If we have a sessionId, check it with Didit API
     if (sessionId) {
-      console.log('🔍 Checking session status with Didit API...');
-      
-      try {
-        const statusData = await didit.getSessionStatus(sessionId);
-        verificationStatus = {
-          session_id: sessionId,
-          status: statusData.status,
-          verified: statusData.verified,
-          plan: statusData.plan,
-          api_verified: statusData.api_verified,
-          user_data: statusData.user_data
-        };
-        
-        console.log('✅ Session status retrieved from API:', {
-          session_id: sessionId,
-          status: statusData.status,
-          verified: statusData.verified
-        });
-      } catch (apiError) {
-        console.warn('⚠️ Error checking API status:', apiError);
-      }
+      query = query.eq('didit_session_id', sessionId);
     }
 
-    // If we don't have verification status yet, use fallback
-    if (!verificationStatus) {
-      console.log('🔍 Using fallback verification data...');
-      
-      // For now, we'll simulate a successful verification for the free plan
-      verificationStatus = {
-        session_id: sessionId || `simulated_${Date.now()}`,
-        status: 'approved',
-        verified: true,
-        plan: 'free',
-        api_verified: false,
-        user_data: { email: email }
-      };
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('❌ Error checking verification:', error);
+      return NextResponse.json({ 
+        error: 'Error al verificar estado' 
+      }, { status: 500 });
     }
 
-    // Extract gender from verification data if available
-    let gender = 'female'; // Default for SHEBN
-    if (verificationStatus.user_data) {
-      gender = didit.extractGender(verificationStatus.user_data);
+    if (!data || data.length === 0) {
+      return NextResponse.json({
+        verified: false,
+        status: 'not_found',
+        message: 'No se encontró verificación para este usuario'
+      });
     }
 
-    console.log('✅ Verification check completed:', {
-      session_id: verificationStatus.session_id,
-      status: verificationStatus.status,
-      verified: verificationStatus.verified,
-      gender: gender
-    });
-
+    const verification = data[0];
+    
     return NextResponse.json({
-      success: true,
-      verified: verificationStatus.verified,
-      session_id: verificationStatus.session_id,
-      status: verificationStatus.status,
-      gender: gender,
-      plan: verificationStatus.plan,
-      api_verified: verificationStatus.api_verified
+      verified: verification.status === 'approved',
+      status: verification.status,
+      gender: verification.gender,
+      first_name: verification.first_name,
+      last_name: verification.last_name,
+      document_number: verification.document_number,
+      date_of_birth: verification.date_of_birth,
+      issuing_state: verification.issuing_state,
+      created_at: verification.created_at,
+      updated_at: verification.updated_at,
+      session_id: verification.didit_session_id
     });
 
   } catch (error) {
-    console.error('❌ Error checking verification:', error);
-    
-    return NextResponse.json({
-      success: false,
-      error: 'Error checking verification status',
-      details: error.message
+    console.error('❌ Error in check verification:', error);
+    return NextResponse.json({ 
+      error: 'Error interno del servidor' 
     }, { status: 500 });
   }
 } 

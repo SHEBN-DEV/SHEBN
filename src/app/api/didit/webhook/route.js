@@ -96,27 +96,68 @@ async function handleVerificationCompleted(verificationData) {
   try {
     console.log('🎉 Handling verification completed:', verificationData.session_id);
     
-    // Extract gender from verification data
-    const gender = didit.extractGender(verificationData);
+    // Extraer datos del payload de Didit
+    const extractedData = verificationData.extracted_data || {};
+    const metadata = verificationData.metadata || {};
     
-    // Store verification in database
+    // Extraer género - buscar en múltiples ubicaciones posibles
+    let gender = null;
+    if (extractedData.gender) {
+      gender = extractedData.gender;
+    } else if (metadata.gender) {
+      gender = metadata.gender;
+    } else if (verificationData.raw_data?.document_data?.gender) {
+      gender = verificationData.raw_data.document_data.gender;
+    } else if (verificationData.document_data?.gender) {
+      gender = verificationData.document_data.gender;
+    }
+    
+    console.log('🔍 Gender extracted:', gender);
+    console.log('📋 Extracted data:', extractedData);
+    
+    // Extraer user_id del metadata
+    const userId = metadata.user_id;
+    
+    // Preparar datos para Supabase
+    const verificationRecord = {
+      user_id: userId,
+      didit_session_id: verificationData.session_id,
+      status: 'approved',
+      first_name: extractedData.first_name,
+      last_name: extractedData.last_name,
+      document_number: extractedData.document_number,
+      date_of_birth: extractedData.date_of_birth ? new Date(extractedData.date_of_birth) : null,
+      date_of_issue: extractedData.date_of_issue ? new Date(extractedData.date_of_issue) : null,
+      gender: gender,
+      issuing_state: extractedData.issuing_state,
+      document_type: extractedData.document_type,
+      raw_didit_data: verificationData
+    };
+    
+    console.log('💾 Saving verification record:', verificationRecord);
+    
+    // Guardar en Supabase usando upsert para evitar duplicados
     const { data, error } = await supabase
       .from('user_verifications')
-      .insert({
-        verification_provider: 'didit',
-        status: 'approved',
-        session_id: verificationData.session_id,
-        verification_data: {
-          ...verificationData,
-          gender: gender,
-          processed_at: new Date().toISOString()
-        }
-      });
+      .upsert(verificationRecord, { 
+        onConflict: 'didit_session_id',
+        ignoreDuplicates: false 
+      })
+      .select();
 
     if (error) {
       console.error('❌ Error storing verification:', error);
     } else {
       console.log('✅ Verification stored successfully:', data);
+      
+      // Actualizar el perfil del usuario si existe
+      if (userId) {
+        await updateUserProfile(userId, {
+          is_verified: true,
+          gender: gender,
+          verification_status: 'approved'
+        });
+      }
     }
   } catch (error) {
     console.error('❌ Error in handleVerificationCompleted:', error);
@@ -192,5 +233,26 @@ async function handleSessionUpdated(sessionData) {
     }
   } catch (error) {
     console.error('❌ Error in handleSessionUpdated:', error);
+  }
+}
+
+// Función para actualizar el perfil del usuario
+async function updateUserProfile(userId, profileData) {
+  try {
+    console.log('👤 Updating user profile:', userId, profileData);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(profileData)
+      .eq('id', userId)
+      .select();
+
+    if (error) {
+      console.error('❌ Error updating user profile:', error);
+    } else {
+      console.log('✅ User profile updated successfully:', data);
+    }
+  } catch (error) {
+    console.error('❌ Error in updateUserProfile:', error);
   }
 }
