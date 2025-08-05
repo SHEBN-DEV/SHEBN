@@ -22,17 +22,15 @@ export default function QRTestPage() {
         workflow_id: workflowId
       };
 
-      console.log('📤 Enviando payload desde página:', payload);
+             console.log('📤 Enviando petición a nuestro endpoint backend');
 
-      const response = await fetch('https://verification.didit.me/v2/session/', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'content-type': 'application/json',
-          'x-api-key': apiKey
-        },
-        body: JSON.stringify(payload)
-      });
+       const response = await fetch('/api/test-didit', {
+         method: 'GET',
+         headers: {
+           'accept': 'application/json',
+           'content-type': 'application/json'
+         }
+       });
 
       console.log('📡 Response status:', response.status);
 
@@ -41,30 +39,30 @@ export default function QRTestPage() {
         throw new Error(`Didit API error: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      console.log('✅ QR Session created from page:', data);
+             const data = await response.json();
+       console.log('✅ QR Session created from backend:', data);
 
-      const verificationUrl = data.verification_url || `https://verification.didit.me/v2/session/${data.session_id || sessionId}`;
+       const verificationUrl = data.session_data.verification_url;
       
       setQrData({
         success: true,
         qr_generated: true,
-        session_data: {
-          session_id: data.session_id || sessionId,
-          verification_url: verificationUrl,
-          status: data.status || 'pending',
-          created_at: new Date().toISOString()
-        },
-        config: {
-          apiKey: 'Present',
-          workflowId: workflowId,
-          url: 'https://verification.didit.me/v2/session/'
-        },
-                 qr_info: {
-           workflow: 'cf449f7e-1848-4e21-a9b4-084000bfdc26 (Custom KYC)',
-          url: verificationUrl,
-          scan_instructions: 'Escanea este QR con tu teléfono para verificar tu identidad'
-        }
+                 session_data: {
+           session_id: data.session_data.session_id,
+           verification_url: verificationUrl,
+           status: data.session_data.status,
+           created_at: data.session_data.created_at
+         },
+                 config: {
+           apiKey: 'Present',
+           workflowId: data.config.workflowId,
+           url: data.config.url
+         },
+                          qr_info: {
+           workflow: data.qr_info.workflow,
+           url: verificationUrl,
+           scan_instructions: data.qr_info.scan_instructions
+         }
       });
 
     } catch (error) {
