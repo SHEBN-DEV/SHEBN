@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { didit } from '../../../lib/didit/client';
 import { createClient } from '@supabase/supabase-js';
-import { DIDIT_CONFIG } from '../../../lib/didit/constants';
 
-// Use service role key for secure database operations
+// Use service role key for webhook processing
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -13,62 +12,34 @@ export async function POST(request) {
     const signature = request.headers.get('x-didit-signature');
     const payload = await request.json();
 
-    console.log('📥 Verification callback received:', {
+    console.log('📥 Webhook verification-callback received:', {
       has_signature: !!signature,
       event_type: payload.event,
       session_id: payload.session_id,
       timestamp: new Date().toISOString()
     });
 
-    // Verify webhook signature for security
+    // Log the complete payload for debugging
+    console.log('📋 Complete webhook payload:', JSON.stringify(payload, null, 2));
+
+    // Verify webhook signature
     if (!didit.verifyWebhook(signature, payload)) {
       console.error('❌ Invalid webhook signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    // Process the verification data
+    // Process webhook data
     const processedData = didit.processWebhook(payload);
     
-    console.log('✅ Verification data processed:', {
+    console.log('✅ Webhook processed:', {
       session_id: processedData.session_id,
       status: processedData.status,
-      verified: processedData.verified,
-      has_user_data: !!processedData.user_data
+      verified: processedData.verified
     });
 
-    // Extract gender from verification data
-    const gender = didit.extractGender(processedData);
-    console.log('👤 Gender extracted:', gender);
-
-    // Store verification data in database
+    // Store webhook log
     try {
-      const { data: verificationRecord, error: dbError } = await supabase
-        .from('user_verifications')
-        .insert({
-          verification_provider: 'didit',
-          status: processedData.status,
-          session_id: processedData.session_id,
-          verification_data: {
-            ...processedData,
-            gender: gender,
-            extracted_at: new Date().toISOString()
-          }
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        console.error('❌ Error storing verification data:', dbError);
-        return NextResponse.json({ 
-          error: 'Database error',
-          details: dbError.message 
-        }, { status: 500 });
-      }
-
-      console.log('✅ Verification data stored in database:', verificationRecord);
-
-      // Log webhook for debugging
-      await supabase
+      const { data: logData, error: logError } = await supabase
         .from('webhook_logs')
         .insert({
           session_id: processedData.session_id,
@@ -76,24 +47,47 @@ export async function POST(request) {
           status: processedData.status
         });
 
+      if (logError) {
+        console.warn('⚠️ Error storing webhook log:', logError);
+      } else {
+        console.log('✅ Webhook log stored:', logData);
+      }
     } catch (dbError) {
-      console.error('❌ Database operation failed:', dbError);
-      return NextResponse.json({ 
-        error: 'Database operation failed',
-        details: dbError.message 
-      }, { status: 500 });
+      console.warn('⚠️ Error with database operation:', dbError);
+    }
+
+    // Process events based on type
+    switch (payload.event) {
+      case 'verification.completed':
+      case 'verification.approved':
+        await handleVerificationCompleted(processedData);
+        break;
+        
+      case 'verification.declined':
+      case 'verification.failed':
+        await handleVerificationDeclined(processedData);
+        break;
+        
+      case 'session.created':
+        await handleSessionCreated(processedData);
+        break;
+        
+      case 'session.updated':
+        await handleSessionUpdated(processedData);
+        break;
+        
+      default:
+        console.log('ℹ️ Unhandled webhook event:', payload.event);
     }
 
     return NextResponse.json({ 
       success: true,
-      session_id: processedData.session_id,
-      status: processedData.status,
-      gender: gender,
-      verified: processedData.verified
+      processed: true,
+      session_id: processedData.session_id
     });
 
   } catch (error) {
-    console.error('❌ Error processing verification callback:', error);
+    console.error('❌ Error processing webhook:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error.message 
@@ -101,68 +95,167 @@ export async function POST(request) {
   }
 }
 
-export async function GET(request) {
+async function handleVerificationCompleted(verificationData) {
   try {
-    const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('session_id');
-    const email = searchParams.get('email');
-
-    if (!sessionId) {
-      return NextResponse.json({ 
-        error: 'Session ID is required' 
-      }, { status: 400 });
-    }
-
-    console.log('🔍 Checking verification status for session:', sessionId);
-
-    // Get verification status from database
-    const { data: verificationData, error: dbError } = await supabase
-      .from('user_verifications')
-      .select('*')
-      .eq('session_id', sessionId)
-      .eq('verification_provider', 'didit')
-      .single();
-
-    if (dbError && dbError.code !== 'PGRST116') {
-      console.error('❌ Database error:', dbError);
-      return NextResponse.json({ 
-        error: 'Database error',
-        details: dbError.message 
-      }, { status: 500 });
-    }
-
-    if (!verificationData) {
-      console.log('⚠️ No verification data found for session:', sessionId);
-      return NextResponse.json({ 
-        verified: false,
-        status: 'not_found',
-        session_id: sessionId
-      });
-    }
-
-    // Extract gender from stored verification data
-    const gender = didit.extractGender(verificationData.verification_data);
+    console.log('🎉 Handling verification completed:', verificationData.session_id);
     
-    console.log('✅ Verification status retrieved:', {
-      session_id: sessionId,
-      status: verificationData.status,
+    // Extraer datos del payload de Didit
+    const extractedData = verificationData.extracted_data || {};
+    const metadata = verificationData.metadata || {};
+    
+    // Extraer género - buscar en múltiples ubicaciones posibles
+    let gender = null;
+    if (extractedData.gender) {
+      gender = extractedData.gender;
+    } else if (metadata.gender) {
+      gender = metadata.gender;
+    } else if (verificationData.raw_data?.document_data?.gender) {
+      gender = verificationData.raw_data.document_data.gender;
+    } else if (verificationData.document_data?.gender) {
+      gender = verificationData.document_data.gender;
+    }
+    
+    console.log('🔍 Gender extracted:', gender);
+    console.log('📋 Extracted data:', extractedData);
+    
+    // Extraer user_id del metadata
+    const userId = metadata.user_id;
+    
+    // Preparar datos para Supabase
+    const verificationRecord = {
+      user_id: userId,
+      didit_session_id: verificationData.session_id,
+      status: 'approved',
+      first_name: extractedData.first_name,
+      last_name: extractedData.last_name,
+      document_number: extractedData.document_number,
+      date_of_birth: extractedData.date_of_birth ? new Date(extractedData.date_of_birth) : null,
+      date_of_issue: extractedData.date_of_issue ? new Date(extractedData.date_of_issue) : null,
       gender: gender,
-      verified: verificationData.status === 'approved'
-    });
+      issuing_state: extractedData.issuing_state,
+      document_type: extractedData.document_type,
+      raw_didit_data: verificationData
+    };
+    
+    console.log('💾 Saving verification record:', verificationRecord);
+    
+    // Guardar en Supabase usando upsert para evitar duplicados
+    const { data, error } = await supabase
+      .from('user_verifications')
+      .upsert(verificationRecord, { 
+        onConflict: 'didit_session_id',
+        ignoreDuplicates: false 
+      })
+      .select();
 
-    return NextResponse.json({
-      verified: verificationData.status === 'approved',
-      session_id: sessionId,
-      status: verificationData.status,
-      gender: gender,
-      verification_data: verificationData.verification_data
-    });
-
+    if (error) {
+      console.error('❌ Error storing verification:', error);
+    } else {
+      console.log('✅ Verification stored successfully:', data);
+      
+      // Actualizar el perfil del usuario si existe
+      if (userId) {
+        await updateUserProfile(userId, {
+          is_verified: true,
+          gender: gender,
+          verification_status: 'approved'
+        });
+      }
+    }
   } catch (error) {
-    console.error('❌ Error checking verification status:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error.message 
-    }, { status: 500 });
+    console.error('❌ Error in handleVerificationCompleted:', error);
+  }
+}
+
+async function handleVerificationDeclined(verificationData) {
+  try {
+    console.log('❌ Handling verification declined:', verificationData.session_id);
+    
+    // Store declined verification
+    const { data, error } = await supabase
+      .from('user_verifications')
+      .insert({
+        verification_provider: 'didit',
+        status: 'declined',
+        session_id: verificationData.session_id,
+        verification_data: verificationData
+      });
+
+    if (error) {
+      console.error('❌ Error storing declined verification:', error);
+    } else {
+      console.log('✅ Declined verification stored:', data);
+    }
+  } catch (error) {
+    console.error('❌ Error in handleVerificationDeclined:', error);
+  }
+}
+
+async function handleSessionCreated(sessionData) {
+  try {
+    console.log('📝 Handling session created:', sessionData.session_id);
+    
+    // Store session creation
+    const { data, error } = await supabase
+      .from('user_verifications')
+      .insert({
+        verification_provider: 'didit',
+        status: 'pending',
+        session_id: sessionData.session_id,
+        verification_data: sessionData
+      });
+
+    if (error) {
+      console.error('❌ Error storing session creation:', error);
+    } else {
+      console.log('✅ Session creation stored:', data);
+    }
+  } catch (error) {
+    console.error('❌ Error in handleSessionCreated:', error);
+  }
+}
+
+async function handleSessionUpdated(sessionData) {
+  try {
+    console.log('🔄 Handling session updated:', sessionData.session_id);
+    
+    // Update existing session
+    const { data, error } = await supabase
+      .from('user_verifications')
+      .update({
+        status: sessionData.status,
+        verification_data: sessionData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('session_id', sessionData.session_id);
+
+    if (error) {
+      console.error('❌ Error updating session:', error);
+    } else {
+      console.log('✅ Session updated:', data);
+    }
+  } catch (error) {
+    console.error('❌ Error in handleSessionUpdated:', error);
+  }
+}
+
+// Función para actualizar el perfil del usuario
+async function updateUserProfile(userId, profileData) {
+  try {
+    console.log('👤 Updating user profile:', userId, profileData);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(profileData)
+      .eq('id', userId)
+      .select();
+
+    if (error) {
+      console.error('❌ Error updating user profile:', error);
+    } else {
+      console.log('✅ User profile updated successfully:', data);
+    }
+  } catch (error) {
+    console.error('❌ Error in updateUserProfile:', error);
   }
 } 
