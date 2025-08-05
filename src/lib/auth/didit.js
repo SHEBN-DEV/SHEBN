@@ -12,7 +12,7 @@ export async function generateDiditAuthUrl(userEmail = null) {
   
   try {
     const apiKey = process.env.API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
-    const workflowId = process.env.VERIFICATION_WORKFLOW_ID || 'cf449f7e-1848-4e21-a9b4-084000bfdc26';
+    const workflowId = process.env.VERIFICATION_WORKFLOW_ID || '5uhSPBvSG';
     const callbackUrl = process.env.VERIFICATION_CALLBACK_URL || `${window.location.origin}/auth/register/callback`;
     
     // Crear sesión usando el endpoint POST correcto según la documentación
@@ -56,7 +56,7 @@ export async function verifyDiditToken(sessionId) {
   try {
     // Usar las variables de entorno según el demo oficial
     const apiKey = process.env.API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
-    const workflowId = process.env.VERIFICATION_WORKFLOW_ID || 'cf449f7e-1848-4e21-a9b4-084000bfdc26';
+    const workflowId = process.env.VERIFICATION_WORKFLOW_ID || '5uhSPBvSG';
     
     // Verificar sesión usando la API de Didit según la documentación oficial
     const response = await fetch(`https://api.didit.me/v1/sessions/${sessionId}`, {
@@ -127,7 +127,7 @@ export async function createDiditSession(userEmail = null) {
   try {
     // Usar las variables de entorno según el demo oficial
     const apiKey = process.env.API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
-    const workflowId = process.env.VERIFICATION_WORKFLOW_ID || 'cf449f7e-1848-4e21-a9b4-084000bfdc26';
+    const workflowId = process.env.VERIFICATION_WORKFLOW_ID || '5uhSPBvSG';
     const callbackUrl = process.env.VERIFICATION_CALLBACK_URL || `${window.location.origin}/auth/register/callback`;
     const baseUrl = process.env.NEXT_VERIFICATION_BASE_URL || 'https://verification.didit.me';
     
