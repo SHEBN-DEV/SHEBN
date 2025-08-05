@@ -6,7 +6,7 @@ export const DIDIT_CONFIG = {
     VERIFICATION_SESSIONS: '/v2/session/'
   },
   API_KEY: process.env.API_KEY || 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw',
-  WORKFLOW_ID: process.env.VERIFICATION_WORKFLOW_ID || '5uhSPBvSG',
+           WORKFLOW_ID: process.env.VERIFICATION_WORKFLOW_ID || 'cf449f7e-1848-4e21-a9b4-084000bfdc26',
   WEBHOOK_SECRET: process.env.DIDIT_WEBHOOK_SECRET,
   CALLBACK_URL: process.env.VERIFICATION_CALLBACK_URL || 'https://shebn.vercel.app/auth/register/callback'
 };

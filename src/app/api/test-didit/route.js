@@ -5,7 +5,7 @@ export async function GET() {
     console.log('🚀 TEST DIDIT - Ruta diferente para evitar interceptación');
     
     const apiKey = 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
-    const workflowId = '5uhSPBvSG';
+    const workflowId = 'cf449f7e-1848-4e21-a9b4-084000bfdc26';
     
     console.log('📋 Configuración:', {
       apiKey: apiKey ? 'Present' : 'Missing',
@@ -68,8 +68,8 @@ export async function GET() {
           'x-api-key': 'Present'
         }
       },
-      qr_info: {
-        workflow: '5uhSPBvSG (QR Generation)',
+             qr_info: {
+         workflow: 'cf449f7e-1848-4e21-a9b4-084000bfdc26 (Custom KYC)',
         url: verificationUrl,
         scan_instructions: 'Escanea este QR con tu teléfono para verificar tu identidad',
         documentation_source: 'https://docs.didit.me/reference/create-session-verification-sessions'
@@ -83,9 +83,9 @@ export async function GET() {
       success: false,
       error: error.message,
       documentation_followed: true,
-      config: {
-        apiKey: 'Present',
-        workflowId: '5uhSPBvSG',
+             config: {
+         apiKey: 'Present',
+         workflowId: 'cf449f7e-1848-4e21-a9b4-084000bfdc26',
         url: 'https://verification.didit.me/v2/session/'
       }
     }, { status: 500 });

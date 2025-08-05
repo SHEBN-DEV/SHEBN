@@ -14,7 +14,7 @@ export default function QRTestPage() {
       console.log('🚀 GENERANDO QR DESDE PÁGINA DIRECTA');
       
       const apiKey = 'Cgo01B6fIwTmsH07qZO5oM3ySPqnxm6EB46_o_jVOVw';
-      const workflowId = '5uhSPBvSG';
+             const workflowId = 'cf449f7e-1848-4e21-a9b4-084000bfdc26';
       const sessionId = `page_qr_${Date.now()}`;
       
       // Payload exacto según documentación oficial de Didit
@@ -60,8 +60,8 @@ export default function QRTestPage() {
           workflowId: workflowId,
           url: 'https://verification.didit.me/v2/session/'
         },
-        qr_info: {
-          workflow: '5uhSPBvSG (QR Generation)',
+                 qr_info: {
+           workflow: 'cf449f7e-1848-4e21-a9b4-084000bfdc26 (Custom KYC)',
           url: verificationUrl,
           scan_instructions: 'Escanea este QR con tu teléfono para verificar tu identidad'
         }
@@ -86,8 +86,8 @@ export default function QRTestPage() {
             <div>
               <strong>API Key:</strong> Present
             </div>
-            <div>
-              <strong>Workflow ID:</strong> 5uhSPBvSG
+                         <div>
+               <strong>Workflow ID:</strong> cf449f7e-1848-4e21-a9b4-084000bfdc26
             </div>
             <div>
               <strong>Endpoint:</strong> https://verification.didit.me/v2/session/
