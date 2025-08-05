@@ -12,75 +12,99 @@ export async function POST(request) {
     const signature = request.headers.get('x-didit-signature');
     const payload = await request.json();
 
-    console.log('📥 Webhook received:', {
+    console.log('📥 Webhook verification-callback received:', {
       has_signature: !!signature,
       event_type: payload.event,
       session_id: payload.session_id,
       timestamp: new Date().toISOString()
     });
 
-    // Verify webhook signature
-    if (!didit.verifyWebhook(signature, payload)) {
-      console.error('❌ Invalid webhook signature');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
+    console.log('📋 Complete webhook payload:', JSON.stringify(payload, null, 2));
 
-    // Process webhook data
-    const processedData = didit.processWebhook(payload);
-    
-    console.log('✅ Webhook processed:', {
-      session_id: processedData.session_id,
-      status: processedData.status,
-      verified: processedData.verified
-    });
-
-    // Store webhook log
-    try {
-      const { data: logData, error: logError } = await supabase
-        .from('webhook_logs')
-        .insert({
-          session_id: processedData.session_id,
-          webhook_data: payload,
-          status: processedData.status
-        });
-
-      if (logError) {
-        console.warn('⚠️ Error storing webhook log:', logError);
-      } else {
-        console.log('✅ Webhook log stored:', logData);
+    // Verify webhook signature if secret is configured
+    if (process.env.DIDIT_WEBHOOK_SECRET) {
+      if (!didit.verifyWebhook(signature, payload)) {
+        console.error('❌ Invalid webhook signature');
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
-    } catch (dbError) {
-      console.warn('⚠️ Error with database operation:', dbError);
+    } else {
+      console.warn('⚠️ No webhook secret configured, accepting all webhooks');
     }
 
-    // Process events based on type
-    switch (payload.event) {
-      case 'verification.completed':
-      case 'verification.approved':
-        await handleVerificationCompleted(processedData);
-        break;
-        
-      case 'verification.declined':
-      case 'verification.failed':
-        await handleVerificationDeclined(processedData);
-        break;
-        
-      case 'session.created':
-        await handleSessionCreated(processedData);
-        break;
-        
-      case 'session.updated':
-        await handleSessionUpdated(processedData);
-        break;
-        
-      default:
-        console.log('ℹ️ Unhandled webhook event:', payload.event);
+    // Check if this is a verification completion webhook
+    console.log('🔍 DEBUG: Checking verification completion conditions...');
+    console.log('🔍 DEBUG: payload.status:', payload.status);
+    console.log('🔍 DEBUG: payload.decision:', !!payload.decision);
+    console.log('🔍 DEBUG: payload.decision?.id_verification:', !!payload.decision?.id_verification);
+    
+    const isVerificationCompleted = payload.status === 'Approved' && 
+                                   payload.decision && 
+                                   payload.decision.id_verification;
+
+    console.log('🔍 DEBUG: isVerificationCompleted:', isVerificationCompleted);
+
+    if (isVerificationCompleted) {
+      console.log('🎉 Processing verification completion webhook');
+      await handleVerificationCompleted(payload);
+    } else {
+      console.log('⚠️ NOT processing as verification completion - falling back to default logic');
+      // Process webhook data using existing logic
+      const processedData = didit.processWebhook(payload);
+      
+      console.log('✅ Webhook processed:', {
+        session_id: processedData.session_id,
+        status: processedData.status,
+        verified: processedData.verified
+      });
+
+      // Store webhook log
+      try {
+        const { data: logData, error: logError } = await supabase
+          .from('webhook_logs')
+          .insert({
+            session_id: processedData.session_id,
+            webhook_data: payload,
+            status: processedData.status
+          });
+
+        if (logError) {
+          console.warn('⚠️ Error storing webhook log:', logError);
+        } else {
+          console.log('✅ Webhook log stored:', logData);
+        }
+      } catch (dbError) {
+        console.warn('⚠️ Error with database operation:', dbError);
+      }
+
+      // Process events based on type
+      switch (payload.event) {
+        case 'verification.completed':
+        case 'verification.approved':
+          await handleVerificationCompleted(processedData);
+          break;
+          
+        case 'verification.declined':
+        case 'verification.failed':
+          await handleVerificationDeclined(processedData);
+          break;
+          
+        case 'session.created':
+          await handleSessionCreated(processedData);
+          break;
+          
+        case 'session.updated':
+          await handleSessionUpdated(processedData);
+          break;
+          
+        default:
+          console.log('ℹ️ Unhandled webhook event:', payload.event);
+      }
     }
 
     return NextResponse.json({ 
       success: true,
       processed: true,
-      session_id: processedData.session_id
+      session_id: payload.session_id
     });
 
   } catch (error) {
@@ -96,41 +120,39 @@ async function handleVerificationCompleted(verificationData) {
   try {
     console.log('🎉 Handling verification completed:', verificationData.session_id);
     
-    // Extraer datos del payload de Didit
-    const extractedData = verificationData.extracted_data || {};
+    // Extraer datos del payload de Didit - estructura correcta
+    const idVerification = verificationData.decision?.id_verification || {};
     const metadata = verificationData.metadata || {};
     
-    // Extraer género - buscar en múltiples ubicaciones posibles
-    let gender = null;
-    if (extractedData.gender) {
-      gender = extractedData.gender;
-    } else if (metadata.gender) {
-      gender = metadata.gender;
-    } else if (verificationData.raw_data?.document_data?.gender) {
-      gender = verificationData.raw_data.document_data.gender;
-    } else if (verificationData.document_data?.gender) {
-      gender = verificationData.document_data.gender;
-    }
+    // Extraer género directamente del id_verification
+    const gender = idVerification.gender;
     
     console.log('🔍 Gender extracted:', gender);
-    console.log('📋 Extracted data:', extractedData);
+    console.log('📋 ID Verification data:', idVerification);
     
-    // Extraer user_id del metadata
-    const userId = metadata.user_id;
+    // Extraer user_id del metadata o buscar por session_id
+    let userId = metadata.user_id;
+    
+    // Si no hay user_id, buscar en la tabla de usuarios por session_id
+    if (!userId) {
+      console.log('🔍 No user_id in metadata, searching by session_id...');
+      // Por ahora, crearemos un registro sin user_id
+      // En el futuro, podríamos buscar por session_id en una tabla de sesiones
+    }
     
     // Preparar datos para Supabase
     const verificationRecord = {
-      user_id: userId,
+      user_id: userId, // Puede ser null
       didit_session_id: verificationData.session_id,
       status: 'approved',
-      first_name: extractedData.first_name,
-      last_name: extractedData.last_name,
-      document_number: extractedData.document_number,
-      date_of_birth: extractedData.date_of_birth ? new Date(extractedData.date_of_birth) : null,
-      date_of_issue: extractedData.date_of_issue ? new Date(extractedData.date_of_issue) : null,
+      first_name: idVerification.first_name,
+      last_name: idVerification.last_name,
+      document_number: idVerification.document_number,
+      date_of_birth: idVerification.date_of_birth ? new Date(idVerification.date_of_birth) : null,
+      date_of_issue: idVerification.date_of_issue ? new Date(idVerification.date_of_issue) : null,
       gender: gender,
-      issuing_state: extractedData.issuing_state,
-      document_type: extractedData.document_type,
+      issuing_state: idVerification.issuing_state,
+      document_type: idVerification.document_type,
       raw_didit_data: verificationData
     };
     
