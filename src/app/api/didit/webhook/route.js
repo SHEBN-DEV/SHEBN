@@ -60,60 +60,142 @@ export async function POST(request) {
           date_of_birth: idVerification.date_of_birth
         });
 
-        // 1. Update verification_sessions table (following official pattern)
-        const { data: verificationSession, error: sessionError } = await supabase
+        // 1. Check if verification_sessions record exists, if not create it
+        let verificationSession = null;
+        const { data: existingSession, error: sessionCheckError } = await supabase
           .from('verification_sessions')
-          .update({
-            status: 'APPROVED',
-            verification_data: payload
-          })
+          .select('*')
           .eq('session_id', sessionId)
-          .select()
           .single();
 
-        if (sessionError) {
-          console.error('❌ Error updating verification session:', sessionError);
-        } else {
-          console.log('✅ Verification session updated:', verificationSession);
-        }
-
-        // 2. Update user_verifications table
-        const { data: userVerification, error: verificationError } = await supabase
-          .from('user_verifications')
-          .update({
-            status: 'approved',
-            verification_data: {
+        if (sessionCheckError && sessionCheckError.code === 'PGRST116') {
+          // Session doesn't exist, create it
+          console.log('📝 Creating new verification session');
+          const { data: newSession, error: createError } = await supabase
+            .from('verification_sessions')
+            .insert({
               session_id: sessionId,
-              status: payload.status,
-              workflow_id: payload.workflow_id,
-              personal_info: {
-                first_name: idVerification.first_name,
-                last_name: idVerification.last_name,
-                gender: idVerification.gender,
-                date_of_birth: idVerification.date_of_birth
-              },
-              document_info: {
-                document_number: idVerification.document_number,
-                date_of_issue: idVerification.date_of_issue,
-                issuing_state: idVerification.issuing_state,
-                document_type: idVerification.document_type
-              },
-              decision: payload.decision,
-              raw_payload: payload
-            }
-          })
-          .eq('session_id', sessionId)
-          .select()
-          .single();
+              status: 'APPROVED',
+              verification_data: payload
+            })
+            .select()
+            .single();
 
-        if (verificationError) {
-          console.error('❌ Error updating user verification:', verificationError);
+          if (createError) {
+            console.error('❌ Error creating verification session:', createError);
+          } else {
+            verificationSession = newSession;
+            console.log('✅ Verification session created:', verificationSession);
+          }
+        } else if (sessionCheckError) {
+          console.error('❌ Error checking verification session:', sessionCheckError);
         } else {
-          console.log('✅ User verification updated:', userVerification);
+          // Session exists, update it
+          console.log('📝 Updating existing verification session');
+          const { data: updatedSession, error: updateError } = await supabase
+            .from('verification_sessions')
+            .update({
+              status: 'APPROVED',
+              verification_data: payload
+            })
+            .eq('session_id', sessionId)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('❌ Error updating verification session:', updateError);
+          } else {
+            verificationSession = updatedSession;
+            console.log('✅ Verification session updated:', verificationSession);
+          }
         }
 
-        // 3. If user_id exists, update profile (following official pattern)
+        // 2. Update or create user_verifications record
+        const { data: existingVerification, error: verificationCheckError } = await supabase
+          .from('user_verifications')
+          .select('*')
+          .eq('session_id', sessionId)
+          .single();
+
+        if (verificationCheckError && verificationCheckError.code === 'PGRST116') {
+          // Verification doesn't exist, create it
+          console.log('📝 Creating new user verification');
+          const { data: newVerification, error: createError } = await supabase
+            .from('user_verifications')
+            .insert({
+              session_id: sessionId,
+              status: 'approved',
+              verification_data: {
+                session_id: sessionId,
+                status: payload.status,
+                workflow_id: payload.workflow_id,
+                personal_info: {
+                  first_name: idVerification.first_name,
+                  last_name: idVerification.last_name,
+                  gender: idVerification.gender,
+                  date_of_birth: idVerification.date_of_birth
+                },
+                document_info: {
+                  document_number: idVerification.document_number,
+                  date_of_issue: idVerification.date_of_issue,
+                  issuing_state: idVerification.issuing_state,
+                  document_type: idVerification.document_type
+                },
+                decision: payload.decision,
+                raw_payload: payload
+              }
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('❌ Error creating user verification:', createError);
+          } else {
+            console.log('✅ User verification created:', newVerification);
+          }
+        } else if (verificationCheckError) {
+          console.error('❌ Error checking user verification:', verificationCheckError);
+        } else {
+          // Verification exists, update it
+          console.log('📝 Updating existing user verification');
+          const { data: updatedVerification, error: updateError } = await supabase
+            .from('user_verifications')
+            .update({
+              status: 'approved',
+              verification_data: {
+                session_id: sessionId,
+                status: payload.status,
+                workflow_id: payload.workflow_id,
+                personal_info: {
+                  first_name: idVerification.first_name,
+                  last_name: idVerification.last_name,
+                  gender: idVerification.gender,
+                  date_of_birth: idVerification.date_of_birth
+                },
+                document_info: {
+                  document_number: idVerification.document_number,
+                  date_of_issue: idVerification.date_of_issue,
+                  issuing_state: idVerification.issuing_state,
+                  document_type: idVerification.document_type
+                },
+                decision: payload.decision,
+                raw_payload: payload
+              }
+            })
+            .eq('session_id', sessionId)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('❌ Error updating user verification:', updateError);
+          } else {
+            console.log('✅ User verification updated:', updatedVerification);
+          }
+        }
+
+        // 3. If user_id exists in verification session, update profile
         if (verificationSession?.user_id) {
+          console.log('👤 Updating user profile:', verificationSession.user_id);
           const { data: profileUpdate, error: profileError } = await supabase
             .from('profiles')
             .update({
@@ -134,6 +216,8 @@ export async function POST(request) {
           } else {
             console.log('✅ Profile updated:', profileUpdate);
           }
+        } else {
+          console.log('ℹ️ No user_id found in verification session, skipping profile update');
         }
 
         return NextResponse.json({
@@ -155,48 +239,74 @@ export async function POST(request) {
     } else if (payload.status === 'Not Started') {
       console.log('📝 Processing session creation webhook');
       
-      // Create initial verification session (following official pattern)
-      const sessionRecord = {
-        session_id: payload.session_id,
-        status: 'NOT_STARTED',
-        verification_data: {
-          session_id: payload.session_id,
-          status: payload.status,
-          workflow_id: payload.workflow_id,
-          created_at: payload.created_at
-        }
-      };
-
-      const { error: sessionError } = await supabase
+      // Create initial verification session if it doesn't exist
+      const { data: existingSession, error: sessionCheckError } = await supabase
         .from('verification_sessions')
-        .insert(sessionRecord);
+        .select('*')
+        .eq('session_id', payload.session_id)
+        .single();
 
-      if (sessionError) {
-        console.error('❌ Error creating verification session:', sessionError);
+      if (sessionCheckError && sessionCheckError.code === 'PGRST116') {
+        // Session doesn't exist, create it
+        const sessionRecord = {
+          session_id: payload.session_id,
+          status: 'NOT_STARTED',
+          verification_data: {
+            session_id: payload.session_id,
+            status: payload.status,
+            workflow_id: payload.workflow_id,
+            created_at: payload.created_at
+          }
+        };
+
+        const { error: sessionError } = await supabase
+          .from('verification_sessions')
+          .insert(sessionRecord);
+
+        if (sessionError) {
+          console.error('❌ Error creating verification session:', sessionError);
+        } else {
+          console.log('✅ Verification session created');
+        }
+      } else if (sessionCheckError) {
+        console.error('❌ Error checking verification session:', sessionCheckError);
       } else {
-        console.log('✅ Verification session created');
+        console.log('ℹ️ Verification session already exists');
       }
 
-      // Create initial user verification record
-      const verificationRecord = {
-        session_id: payload.session_id,
-        status: 'pending',
-        verification_data: {
-          session_id: payload.session_id,
-          status: payload.status,
-          workflow_id: payload.workflow_id,
-          created_at: payload.created_at
-        }
-      };
-
-      const { error: verificationError } = await supabase
+      // Create initial user verification record if it doesn't exist
+      const { data: existingVerification, error: verificationCheckError } = await supabase
         .from('user_verifications')
-        .insert(verificationRecord);
+        .select('*')
+        .eq('session_id', payload.session_id)
+        .single();
 
-      if (verificationError) {
-        console.error('❌ Error creating user verification:', verificationError);
+      if (verificationCheckError && verificationCheckError.code === 'PGRST116') {
+        // Verification doesn't exist, create it
+        const verificationRecord = {
+          session_id: payload.session_id,
+          status: 'pending',
+          verification_data: {
+            session_id: payload.session_id,
+            status: payload.status,
+            workflow_id: payload.workflow_id,
+            created_at: payload.created_at
+          }
+        };
+
+        const { error: verificationError } = await supabase
+          .from('user_verifications')
+          .insert(verificationRecord);
+
+        if (verificationError) {
+          console.error('❌ Error creating user verification:', verificationError);
+        } else {
+          console.log('✅ User verification created');
+        }
+      } else if (verificationCheckError) {
+        console.error('❌ Error checking user verification:', verificationCheckError);
       } else {
-        console.log('✅ User verification created');
+        console.log('ℹ️ User verification already exists');
       }
 
       return NextResponse.json({
